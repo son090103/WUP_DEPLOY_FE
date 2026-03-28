@@ -736,19 +736,41 @@ const StaffBookingAll: React.FC = () => {
                                                                 <div className="relative">
                                                                     <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-gradient-to-b from-green-400 to-orange-500" />
                                                                     <div className="space-y-3">
-                                                                        {[...trip.time].sort((a, b) => a.stop_order - b.stop_order).map((stop, idx) => (
-                                                                            <div key={stop._id} className="flex items-start gap-3 pl-8 relative">
-                                                                                <div className={`absolute left-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0
-                                                                                    ${idx === 0 ? "bg-green-500 text-white" : idx === trip.time.length - 1 ? "bg-orange-600 text-white" : "bg-white border-2 border-orange-300 text-orange-600"}`}>
-                                                                                    {idx + 1}
+                                                                        {(trip.time ?? [])
+                                                                            .slice()
+                                                                            .sort((a, b) => a.stop_order - b.stop_order)
+                                                                            .map((stop, idx, arr) => (
+                                                                                <div key={stop._id} className="flex items-start gap-3 pl-8 relative">
+
+                                                                                    <div
+                                                                                        className={`absolute left-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0
+        ${idx === 0
+                                                                                                ? "bg-green-500 text-white"
+                                                                                                : idx === arr.length - 1
+                                                                                                    ? "bg-orange-600 text-white"
+                                                                                                    : "bg-white border-2 border-orange-300 text-orange-600"
+                                                                                            }`}
+                                                                                    >
+                                                                                        {idx + 1}
+                                                                                    </div>
+
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <p className="text-sm font-semibold text-gray-800">
+                                                                                            {stop.stop_id?.province || stop.stop_id?.name}
+                                                                                        </p>
+
+                                                                                        {stop.stop_id?.name && stop.stop_id?.province && (
+                                                                                            <p className="text-xs text-gray-400">{stop.stop_id.name}</p>
+                                                                                        )}
+                                                                                    </div>
+
+                                                                                    {stop.estimated_time > 0 && (
+                                                                                        <span className="text-[10px] text-orange-400 font-semibold flex-shrink-0">
+                                                                                            +{stop.estimated_time}h
+                                                                                        </span>
+                                                                                    )}
                                                                                 </div>
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <p className="text-sm font-semibold text-gray-800">{stop.stop_id?.province || stop.stop_id?.name}</p>
-                                                                                    {stop.stop_id?.name && stop.stop_id?.province && <p className="text-xs text-gray-400">{stop.stop_id.name}</p>}
-                                                                                </div>
-                                                                                {stop.estimated_time > 0 && <span className="text-[10px] text-orange-400 font-semibold flex-shrink-0">+{stop.estimated_time}h</span>}
-                                                                            </div>
-                                                                        ))}
+                                                                            ))}
                                                                     </div>
                                                                 </div>
                                                             </div>

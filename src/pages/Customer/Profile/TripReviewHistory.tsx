@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
-import { Star, Loader2, AlertCircle, RefreshCw, MapPin, Bus, MessageSquare, X, CircleCheck,TriangleAlert } from "lucide-react";
+import { Star, Loader2, RefreshCw, MapPin, Bus, MessageSquare, CircleCheck, TriangleAlert } from "lucide-react";
 import baseApiAuth from "../../../api/auth";
-import type { getTripFinished } from "../../../model/getTripFinishedHistory";
-import type { reviewForm } from "../../../model/reviewForm";
 import type { getTripFinishedWithReview } from "../../../model/getTripFinishedWithReview";
 
 interface NoticeState {
@@ -11,68 +9,17 @@ interface NoticeState {
   message: string;
 }
 
-const formatTime = (d?: string | null) => {
-  if (!d) return "--:--";
-  return new Date(d).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-};
-
 const formatDate = (d?: string | null) => {
   if (!d) return "--/--/----";
   return new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
-/* ================= STAR RATING ================= */
-function StarRating({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) {
-  const [hover, setHover] = useState(0);
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs font-semibold text-slate-500 w-20">{label}</span>
-      <div className="flex gap-0.5">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            onClick={() => onChange(star)}
-            onMouseEnter={() => setHover(star)}
-            onMouseLeave={() => setHover(0)}
-            className="p-0.5 transition-transform hover:scale-110"
-          >
-            <Star
-              size={22}
-              className={`transition-colors ${
-                star <= (hover || value)
-                  ? "fill-yellow-400 text-yellow-400"
-                  : "fill-none text-slate-300"
-              }`}
-            />
-          </button>
-        ))}
-      </div>
-      {value > 0 && <span className="text-xs font-bold text-yellow-600">{value}/5</span>}
-    </div>
-  );
-}
-
 /* ================= COMPONENT ================= */
 export default function TripReview() {
   const [loading, setLoading] = useState(false);
   const [TripFinishedHistory, setTripFinishedHistory] = useState<getTripFinishedWithReview[]>([]);
-   const [notice, setNotice] = useState<NoticeState | null>(null);
-  const [reviewingOrder, setReviewingOrder] = useState<getTripFinishedWithReview | null>( null,);
-  const [reviewForm, setReviewForm] = useState<reviewForm>({
-    booking_id: "",
-    trip_id: "",
-    rating: 0,
-    comment: "",
-    driver_rating: 0,
-    assistant_rating: 0,
-    bus_rating: 0,
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [reviewingOrder, setReviewingOrder] = useState<getTripFinishedWithReview | null>(null);
 
   // Hàm use effect lấy lịch sử trip đã kết thúc để đánh giá
   useEffect(() => {
@@ -81,6 +28,7 @@ export default function TripReview() {
 
   // Hàm api lấy lịch sử trip đã kết thúc để đánh giá
   const getTripFinishedHistoryWithReview = async () => {
+    setLoading(true);
     try {
       const res = await baseApiAuth.get(
         "/api/customer/check/reviewTripHistory",
@@ -88,6 +36,8 @@ export default function TripReview() {
       setTripFinishedHistory(res.data);
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,22 +45,11 @@ export default function TripReview() {
   const openReview = (order: getTripFinishedWithReview) => {
     setReviewingOrder(order);
     console.log("order", order);
-    setReviewForm({
-      booking_id: order._id,
-      trip_id: order.trip_id,
-      rating: 0,
-      comment: "",
-      driver_rating: 0,
-      assistant_rating: 0,
-      bus_rating: 0,
-    });
-    setSubmitResult(null);
   };
 
   // Đóng review
   const closeReview = () => {
     setReviewingOrder(null);
-    setSubmitResult(null);
   };
 
 
@@ -349,47 +288,24 @@ export default function TripReview() {
           </div>
         </div>
       )}
-       {notice ? (
+
+      {notice ? (
         <>
           <style>{`
           @keyframes routeNoticeIn {
-            0% {
-              opacity: 0;
-              transform: translateY(10px) scale(0.95);
-            }
-            70% {
-              transform: translateY(-2px) scale(1.02);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
+            0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+            70% { transform: translateY(-2px) scale(1.02); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
           }
-
           @keyframes routeNoticeIcon {
-            0% {
-              transform: scale(0.4) rotate(-25deg);
-              opacity: 0;
-            }
-            55% {
-              transform: scale(1.18) rotate(8deg);
-              opacity: 1;
-            }
-            80% {
-              transform: scale(0.95) rotate(-4deg);
-            }
-            100% {
-              transform: scale(1) rotate(0);
-            }
+            0% { transform: scale(0.4) rotate(-25deg); opacity: 0; }
+            55% { transform: scale(1.18) rotate(8deg); opacity: 1; }
+            80% { transform: scale(0.95) rotate(-4deg); }
+            100% { transform: scale(1) rotate(0); }
           }
-
           @keyframes routeNoticePulse {
-            0% {
-              box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.32);
-            }
-            100% {
-              box-shadow: 0 0 0 16px rgba(16, 185, 129, 0);
-            }
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.32); }
+            100% { box-shadow: 0 0 0 16px rgba(16, 185, 129, 0); }
           }
         `}</style>
           <div

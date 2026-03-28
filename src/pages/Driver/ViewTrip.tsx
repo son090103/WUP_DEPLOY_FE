@@ -81,7 +81,7 @@ export function ViewTrip() {
                 {displayedTrips.map(trip => {
                     // ✅ Dùng thẳng departure_time và arrival_time từ Trip
                     const departureTime = new Date(trip.departure_time);
-                    const arrivalTime = new Date(trip.arrival_time);
+                    const arrivalTime = new Date(trip.arrival_time ?? "")
 
                     // ✅ Tính duration từ 2 trường có sẵn, làm tròn lên giờ
                     const durationMs = arrivalTime.getTime() - departureTime.getTime();
@@ -102,8 +102,8 @@ export function ViewTrip() {
                         <div
                             key={trip._id}
                             className={`border-2 rounded-xl p-4 lg:p-6 transition-all duration-300 cursor-pointer shadow-md hover:shadow-lg ${selectedTrip === trip._id
-                                    ? 'border-orange-500 bg-gradient-to-r from-orange-50 to-orange-100 shadow-lg'
-                                    : 'border-orange-200 hover:border-orange-400 hover:shadow-lg'
+                                ? 'border-orange-500 bg-gradient-to-r from-orange-50 to-orange-100 shadow-lg'
+                                : 'border-orange-200 hover:border-orange-400 hover:shadow-lg'
                                 }`}
                             onClick={() => handleSelectTrip(trip._id)}
                         >
@@ -236,8 +236,8 @@ export function ViewTrip() {
                         key={page}
                         onClick={() => setCurrentPage(page)}
                         className={`w-9 h-9 rounded-lg text-sm font-bold transition-all ${page === currentPage
-                                ? "bg-orange-500 text-white shadow-md"
-                                : "bg-white border border-orange-200 text-gray-700 hover:bg-orange-50"
+                            ? "bg-orange-500 text-white shadow-md"
+                            : "bg-white border border-orange-200 text-gray-700 hover:bg-orange-50"
                             }`}
                     >
                         {page}

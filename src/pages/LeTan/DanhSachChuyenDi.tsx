@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Users, Bus, MapPin, Clock, ChevronDown, ChevronUp, Phone, User, RefreshCw } from "lucide-react";
+import { Bus, MapPin, ChevronDown, ChevronUp, Phone, RefreshCw } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

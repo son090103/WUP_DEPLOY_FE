@@ -136,9 +136,6 @@ function QRModal({ orderId, amount, transferContent, onPaid, onClose }: { orderI
 }
 
 /* ================= CUSTOMER SECTION ================= */
-// ⚠️ QUAN TRỌNG: Component này phải đặt NGOÀI BusBookingUI
-// Nếu đặt bên trong, mỗi lần state thay đổi React tạo function mới
-// → unmount/remount toàn bộ → input mất focus, không gõ được
 type CustomerSectionProps = {
     splitMode: boolean;
     setSplitMode: (v: boolean) => void;
@@ -161,7 +158,6 @@ function CustomerSection({
 }: CustomerSectionProps) {
     return (
         <div className="mx-3 mt-3 lg:mx-0 lg:mt-0 bg-white rounded-2xl lg:rounded-lg shadow-lg border-2 border-orange-200 lg:border-orange-300 overflow-hidden">
-            {/* Header with toggle */}
             <div className="flex items-center justify-between px-4 lg:px-6 py-3.5 lg:py-4 bg-gradient-to-r from-orange-500 to-orange-600">
                 <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center"><User size={14} className="text-white" /></div>
@@ -179,7 +175,6 @@ function CustomerSection({
             </div>
 
             <div className="p-4 lg:p-6">
-                {/* ── SINGLE BOOKER MODE ── */}
                 {!splitMode && (
                     <div className="space-y-4">
                         <div className="flex items-start gap-3 px-4 py-3 bg-orange-50 border border-orange-200 rounded-xl">
@@ -223,7 +218,6 @@ function CustomerSection({
                     </div>
                 )}
 
-                {/* ── SPLIT MODE: one card per seat ── */}
                 {splitMode && (
                     <div className="space-y-3">
                         <div className="flex items-start gap-2.5 px-3.5 py-3 bg-blue-50 border border-blue-200 rounded-xl mb-1">
@@ -354,9 +348,6 @@ export default function BusBookingUI() {
     const [paymentMethod, setPaymentMethod] = useState<"CASH_ON_BOARD" | "ONLINE">("CASH_ON_BOARD");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
-    const [bookingConfirmed, setBookingConfirmed] = useState(false);
-    const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
-    const [bookedLabels, setBookedLabels] = useState<string[]>([]);
     const [showQR, setShowQR] = useState(false);
     const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
     const [showPaymentSuccessToast, setShowPaymentSuccessToast] = useState(false);
@@ -380,16 +371,15 @@ export default function BusBookingUI() {
                 if (override) { const c = override.column_overrides.find((c: any) => c.column_name === col.name); if (c) n = c.seats; }
                 for (let i = 0; i < n; i++) {
                     const id = `${floor}-${row}-${ci}-${i}`; const label = `A${cnt++}`;
-                    const isBooked = bookedLabels.includes(label);
-                    const isSelected = !isBooked && (selectedSeats.includes(id) || selectedSeatLabels.includes(label));
-                    seats.push({ id, floor, row, col: ci, status: isBooked ? "booked" : isSelected ? "selected" : "available", label });
+                    const isSelected = selectedSeats.includes(id) || selectedSeatLabels.includes(label);
+                    seats.push({ id, floor, row, col: ci, status: isSelected ? "selected" : "available", label });
                 }
             });
         }
         return seats;
     };
 
-    const floor1Seats = useMemo(() => generateSeats(1), [trip, selectedSeats, selectedSeatLabels, bookedLabels]);
+    const floor1Seats = useMemo(() => generateSeats(1), [trip, selectedSeats, selectedSeatLabels]);
     const groupedSeats = useMemo(() => {
         const g: Record<number, { LEFT: Seat[]; RIGHT: Seat[] }> = {};
         floor1Seats.forEach(s => { if (!g[s.row]) g[s.row] = { LEFT: [], RIGHT: [] }; if (s.col === 0) g[s.row].LEFT.push(s); else g[s.row].RIGHT.push(s); });
@@ -429,8 +419,7 @@ export default function BusBookingUI() {
                 start_info: { city: pickupPoint?.stop_id?.province ?? "", specific_location: pickupLocationPoint?.location_name ?? "" },
                 end_info: { city: dropoffPoint?.stop_id?.province ?? "", specific_location: dropoffLocationPoint?.location_name ?? "" },
                 seat_labels: seatList, ticket_price: ticketPrice, payment_method: paymentMethod,
-                passenger_name: main.name.trim(), passenger_phone: main.phone.trim(),passenger_email: main.email?.trim() || null, 
-
+                passenger_name: main.name.trim(), passenger_phone: main.phone.trim(), passenger_email: main.email?.trim() || null,
                 passengers: splitMode
                     ? passengers.map((p, i) => ({ seat_label: seatList[i], name: p.name.trim(), phone: p.phone.trim() }))
                     : seatList.map(seat => ({ seat_label: seat, name: booker.name.trim(), phone: booker.phone.trim() })),
@@ -446,7 +435,6 @@ export default function BusBookingUI() {
         try {
             const orderId = await createOrder();
             if (!orderId) return;
-            setBookedLabels(seatList); setConfirmedOrderId(orderId);
             if (paymentMethod === "ONLINE") { setPendingOrderId(orderId); setShowQR(true); }
             else navigate("/user/orderhistory");
         } catch { setErrorMsg("Lỗi kết nối. Vui lòng thử lại."); }
@@ -457,32 +445,6 @@ export default function BusBookingUI() {
         setShowQR(false); setShowPaymentSuccessToast(true);
         setTimeout(() => { setShowPaymentSuccessToast(false); navigate("/user/orderhistory"); }, 2200);
     }, []);
-
-    /* ════ CONFIRMED VIEW ════ */
-    if (bookingConfirmed) {
-        const actual = bookedLabels.length > 0 ? bookedLabels : seatList;
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-slate-100 py-6 px-3 lg:py-10 lg:px-4 pt-[56px] lg:pt-10">
-                <div className="max-w-2xl mx-auto space-y-4">
-                    <div className="bg-white rounded-2xl shadow-xl border-2 border-green-200 p-6 lg:p-8 text-center">
-                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100"><svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></div>
-                        <h2 className="text-xl font-black text-slate-900 mb-1">Đặt vé thành công! 🎉</h2>
-                        <p className="text-slate-500 text-sm">Cảm ơn <span className="font-bold text-slate-700">{splitMode ? passengers[0]?.name : booker.name}</span> đã đặt vé.</p>
-                        {confirmedOrderId && <p className="mt-2 text-xs text-slate-400">Mã đơn: <span className="font-mono font-bold text-slate-600">{confirmedOrderId}</span></p>}
-                        {paymentMethod === "ONLINE" ? <p className="mt-2 text-xs font-semibold text-green-600 bg-green-50 rounded-full px-3 py-1 inline-block">✅ Đã thanh toán online</p> : <p className="mt-2 text-xs font-semibold text-orange-600 bg-orange-50 rounded-full px-3 py-1 inline-block">💵 Thanh toán trên xe</p>}
-                    </div>
-                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-4 lg:p-6 text-white">
-                        <div className="flex items-center justify-between mb-3"><h3 className="font-bold">🪑 Ghế đã đặt</h3><div className="flex flex-wrap gap-1.5 justify-end">{actual.map((s: string) => <span key={s} className="bg-white/25 text-white text-xs font-black px-2.5 py-1 rounded-lg">{s}</span>)}</div></div>
-                        <div className="border-t border-white/30 pt-3 flex items-center justify-between"><span className="text-orange-100 text-sm">{actual.length} ghế × {ticketPrice.toLocaleString("vi-VN")}₫</span><span className="text-2xl font-black">{totalPrice.toLocaleString("vi-VN")}₫</span></div>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                        <button onClick={() => navigate("/")} className="flex-1 py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-bold text-sm min-w-[100px]">🏠 Về trang chủ</button>
-                        <button onClick={() => navigate("/user/orderhistory")} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold shadow-lg text-sm min-w-[100px]">📋 Lịch sử đặt vé</button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     /* ════════════ MAIN VIEW ════════════ */
     return (
@@ -496,53 +458,53 @@ export default function BusBookingUI() {
                 <QRModal orderId={pendingOrderId} amount={totalPrice} transferContent={makeTransferContent(pendingOrderId)} onPaid={handlePaymentConfirmed} onClose={() => setShowQR(false)} />
             )}
 
-            {/* ===== HERO BANNER — copy 100% từ Header2 + Side12 ===== */}
+            {/* ===== HERO BANNER ===== */}
             <section className="relative overflow-hidden bg-[#ece7e2] hidden md:block">
-              <img src="/images/bg4.png" alt="Hero background" className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none select-none" style={{ maxHeight: "720px" }} />
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-[96px] bg-gradient-to-b from-[#fefcfb]/90 via-[#fefcfb]/58 to-transparent" />
-              <div className="absolute inset-0 bg-[linear-gradient(96deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.93)_34%,rgba(255,255,255,0.64)_56%,rgba(255,255,255,0.16)_78%,rgba(255,255,255,0)_100%)]" />
-              <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-[#f3ece5] to-[#ece7e2]" />
-              <div className="absolute inset-x-0 bottom-0 h-px bg-[#ece7e2]" />
-              <div className="pointer-events-none absolute top-[18%] right-[0%] z-10 w-[66%] max-w-[860px] md:top-[18%] md:w-[62%]">
-                <div className="bus-aero-overlay absolute inset-[-16%] z-0">
-                  <span className="bus-cloud bus-cloud-1 absolute left-[-10%] top-[-10%] h-[28%] w-[68%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.74)_0%,rgba(255,255,255,0.25)_54%,rgba(255,255,255,0)_100%)] blur-[30px]" />
-                  <span className="bus-cloud bus-cloud-2 absolute left-[-20%] top-[28%] h-[26%] w-[42%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.66)_0%,rgba(255,255,255,0.2)_54%,rgba(255,255,255,0)_100%)] blur-[24px]" />
-                  <span className="bus-cloud bus-cloud-3 absolute right-[-16%] top-[34%] h-[26%] w-[42%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.64)_0%,rgba(255,255,255,0.18)_54%,rgba(255,255,255,0)_100%)] blur-[24px]" />
-                  <span className="bus-cloud bus-cloud-4 absolute left-[-16%] top-[66%] h-[30%] w-[58%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.68)_0%,rgba(255,255,255,0.24)_54%,rgba(255,255,255,0)_100%)] blur-[28px]" />
-                  <span className="bus-cloud bus-cloud-5 absolute right-[-4%] top-[70%] h-[28%] w-[54%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.64)_0%,rgba(255,255,255,0.2)_54%,rgba(255,255,255,0)_100%)] blur-[26px]" />
-                  <span className="bus-cloud bus-cloud-6 absolute left-[4%] top-[90%] h-[16%] w-[72%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.56)_0%,rgba(255,255,255,0.14)_54%,rgba(255,255,255,0)_100%)] blur-[24px]" />
+                <img src="/images/bg4.png" alt="Hero background" className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none select-none" style={{ maxHeight: "720px" }} />
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-[96px] bg-gradient-to-b from-[#fefcfb]/90 via-[#fefcfb]/58 to-transparent" />
+                <div className="absolute inset-0 bg-[linear-gradient(96deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.93)_34%,rgba(255,255,255,0.64)_56%,rgba(255,255,255,0.16)_78%,rgba(255,255,255,0)_100%)]" />
+                <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-[#f3ece5] to-[#ece7e2]" />
+                <div className="absolute inset-x-0 bottom-0 h-px bg-[#ece7e2]" />
+                <div className="pointer-events-none absolute top-[18%] right-[0%] z-10 w-[66%] max-w-[860px] md:top-[18%] md:w-[62%]">
+                    <div className="bus-aero-overlay absolute inset-[-16%] z-0">
+                        <span className="bus-cloud bus-cloud-1 absolute left-[-10%] top-[-10%] h-[28%] w-[68%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.74)_0%,rgba(255,255,255,0.25)_54%,rgba(255,255,255,0)_100%)] blur-[30px]" />
+                        <span className="bus-cloud bus-cloud-2 absolute left-[-20%] top-[28%] h-[26%] w-[42%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.66)_0%,rgba(255,255,255,0.2)_54%,rgba(255,255,255,0)_100%)] blur-[24px]" />
+                        <span className="bus-cloud bus-cloud-3 absolute right-[-16%] top-[34%] h-[26%] w-[42%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.64)_0%,rgba(255,255,255,0.18)_54%,rgba(255,255,255,0)_100%)] blur-[24px]" />
+                        <span className="bus-cloud bus-cloud-4 absolute left-[-16%] top-[66%] h-[30%] w-[58%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.68)_0%,rgba(255,255,255,0.24)_54%,rgba(255,255,255,0)_100%)] blur-[28px]" />
+                        <span className="bus-cloud bus-cloud-5 absolute right-[-4%] top-[70%] h-[28%] w-[54%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.64)_0%,rgba(255,255,255,0.2)_54%,rgba(255,255,255,0)_100%)] blur-[26px]" />
+                        <span className="bus-cloud bus-cloud-6 absolute left-[4%] top-[90%] h-[16%] w-[72%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.56)_0%,rgba(255,255,255,0.14)_54%,rgba(255,255,255,0)_100%)] blur-[24px]" />
+                    </div>
+                    <div className="bus-aero-trail absolute right-[-14%] top-[30%] z-0 h-[54%] w-[46%]">
+                        <span className="bus-tail-cloud bus-tail-cloud-1 absolute right-[10%] top-[14%] h-[42%] w-[34%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.9)_0%,rgba(255,255,255,0.48)_54%,rgba(255,255,255,0)_100%)] blur-[8px]" />
+                        <span className="bus-tail-cloud bus-tail-cloud-2 absolute right-[28%] top-[28%] h-[38%] w-[32%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.84)_0%,rgba(255,255,255,0.4)_54%,rgba(255,255,255,0)_100%)] blur-[8px]" />
+                        <span className="bus-tail-cloud bus-tail-cloud-3 absolute right-[12%] top-[50%] h-[34%] w-[30%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.8)_0%,rgba(255,255,255,0.36)_54%,rgba(255,255,255,0)_100%)] blur-[10px]" />
+                        <span className="bus-tail-cloud bus-tail-cloud-4 absolute right-[38%] top-[20%] h-[26%] w-[24%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.78)_0%,rgba(255,255,255,0.32)_54%,rgba(255,255,255,0)_100%)] blur-[8px]" />
+                        <span className="bus-tail-cloud bus-tail-cloud-6 absolute right-[24%] top-[44%] h-[26%] w-[24%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.82)_0%,rgba(255,255,255,0.38)_54%,rgba(255,255,255,0)_100%)] blur-[8px]" />
+                    </div>
+                    <div className="bus-bob relative z-10">
+                        <img src="/images/bus7.png" alt="Bus overlay" className="w-full object-contain block relative -top-100" style={{ imageRendering: "auto", filter: "drop-shadow(0 24px 28px rgba(15,23,42,0.28)) drop-shadow(0 0 22px rgba(255,255,255,0.5))" }} />
+                        <div className="pointer-events-none absolute inset-0">
+                            <div className="bus-front-left-passenger"><img src="/images/loxe1.png" alt="Front passenger" className="bus-front-left-passenger-img" /></div>
+                            <div className="bus-driver-fit"><img src="/images/1me1.png" alt="Driver" className="bus-driver-fit-img" /></div>
+                        </div>
+                    </div>
                 </div>
-                <div className="bus-aero-trail absolute right-[-14%] top-[30%] z-0 h-[54%] w-[46%]">
-                  <span className="bus-tail-cloud bus-tail-cloud-1 absolute right-[10%] top-[14%] h-[42%] w-[34%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.9)_0%,rgba(255,255,255,0.48)_54%,rgba(255,255,255,0)_100%)] blur-[8px]" />
-                  <span className="bus-tail-cloud bus-tail-cloud-2 absolute right-[28%] top-[28%] h-[38%] w-[32%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.84)_0%,rgba(255,255,255,0.4)_54%,rgba(255,255,255,0)_100%)] blur-[8px]" />
-                  <span className="bus-tail-cloud bus-tail-cloud-3 absolute right-[12%] top-[50%] h-[34%] w-[30%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.8)_0%,rgba(255,255,255,0.36)_54%,rgba(255,255,255,0)_100%)] blur-[10px]" />
-                  <span className="bus-tail-cloud bus-tail-cloud-4 absolute right-[38%] top-[20%] h-[26%] w-[24%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.78)_0%,rgba(255,255,255,0.32)_54%,rgba(255,255,255,0)_100%)] blur-[8px]" />
-                  <span className="bus-tail-cloud bus-tail-cloud-6 absolute right-[24%] top-[44%] h-[26%] w-[24%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.82)_0%,rgba(255,255,255,0.38)_54%,rgba(255,255,255,0)_100%)] blur-[8px]" />
+                <div className="relative z-20 mx-auto flex w-full max-w-[1240px] items-center px-4 min-h-[320px] pt-20 pb-6 md:min-h-[680px] md:pt-10 md:pb-24 lg:min-h-[780px] lg:pt-8">
+                    <div className="page-enter-copy relative isolate w-full max-w-[760px] space-y-3 md:space-y-6 md:-ml-14 lg:-ml-24">
+                        <div className="pointer-events-none absolute left-[46%] top-[46%] z-0 hidden md:block h-[360px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.46)_34%,rgba(255,255,255,0.18)_56%,rgba(255,255,255,0)_78%)] blur-[26px]" />
+                        <h1 className="hero-title relative z-10 py-1 font-black leading-[1.05] tracking-[-0.03em] text-[#0d142a] text-[34px] sm:text-[48px] md:text-[58px] lg:text-[72px]">
+                            <span className="hero-title-line block whitespace-nowrap">Tìm và đặt ngay</span>
+                            <span className="hero-title-line mt-1 md:mt-2 block whitespace-nowrap">những chuyến xe</span>
+                            <span className="hero-title-line mt-1 md:mt-2 block whitespace-nowrap font-extrabold italic">
+                                <span className="text-[#0d142a]">thật</span>{" "}
+                                <span className="hero-title-shimmer">Dễ Dàng</span>
+                            </span>
+                        </h1>
+                        <p className="relative z-10 hidden sm:block max-w-[510px] text-base leading-relaxed text-[#475569] lg:text-lg">
+                            Đặt vé mọi lúc mọi nơi, đi vững ngàn hành trình đa dạng và dịch vụ chất lượng cao nhất.
+                        </p>
+                    </div>
                 </div>
-                <div className="bus-bob relative z-10">
-                  <img src="/images/bus7.png" alt="Bus overlay" className="w-full object-contain block relative -top-100" style={{ imageRendering: "auto", filter: "drop-shadow(0 24px 28px rgba(15,23,42,0.28)) drop-shadow(0 0 22px rgba(255,255,255,0.5))" }} />
-                  <div className="pointer-events-none absolute inset-0">
-                    <div className="bus-front-left-passenger"><img src="/images/loxe1.png" alt="Front passenger" className="bus-front-left-passenger-img" /></div>
-                    <div className="bus-driver-fit"><img src="/images/1me1.png" alt="Driver" className="bus-driver-fit-img" /></div>
-                  </div>
-                </div>
-              </div>
-              <div className="relative z-20 mx-auto flex w-full max-w-[1240px] items-center px-4 min-h-[320px] pt-20 pb-6 md:min-h-[680px] md:pt-10 md:pb-24 lg:min-h-[780px] lg:pt-8">
-                <div className="page-enter-copy relative isolate w-full max-w-[760px] space-y-3 md:space-y-6 md:-ml-14 lg:-ml-24">
-                  <div className="pointer-events-none absolute left-[46%] top-[46%] z-0 hidden md:block h-[360px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.46)_34%,rgba(255,255,255,0.18)_56%,rgba(255,255,255,0)_78%)] blur-[26px]" />
-                  <h1 className="hero-title relative z-10 py-1 font-black leading-[1.05] tracking-[-0.03em] text-[#0d142a] text-[34px] sm:text-[48px] md:text-[58px] lg:text-[72px]">
-                    <span className="hero-title-line block whitespace-nowrap">Tìm và đặt ngay</span>
-                    <span className="hero-title-line mt-1 md:mt-2 block whitespace-nowrap">những chuyến xe</span>
-                    <span className="hero-title-line mt-1 md:mt-2 block whitespace-nowrap font-extrabold italic">
-                      <span className="text-[#0d142a]">thật</span>{" "}
-                      <span className="hero-title-shimmer">Dễ Dàng</span>
-                    </span>
-                  </h1>
-                  <p className="relative z-10 hidden sm:block max-w-[510px] text-base leading-relaxed text-[#475569] lg:text-lg">
-                    Đặt vé mọi lúc mọi nơi, đi vững ngàn hành trình đa dạng và dịch vụ chất lượng cao nhất.
-                  </p>
-                </div>
-              </div>
             </section>
 
             {/* Mobile header */}
@@ -639,7 +601,6 @@ export default function BusBookingUI() {
                                 </div>
                             </div>
 
-                            {/* ══ CUSTOMER SECTION — dùng component ngoài, truyền props ══ */}
                             <CustomerSection
                                 splitMode={splitMode}
                                 setSplitMode={setSplitMode}

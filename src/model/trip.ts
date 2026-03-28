@@ -32,6 +32,7 @@ export interface DriverShift {
     driver_id: User;
     shift_start: string;
     shift_end: string;
+    actual_shift_start?: string;
 }
 
 export interface Trip {
@@ -47,4 +48,5 @@ export interface Trip {
     departure_time: string;
     status: "SCHEDULED" | "RUNNING" | "FINISHED" | "CANCELLED";
     created_at: string;
+    arrival_time?: string;
 }
