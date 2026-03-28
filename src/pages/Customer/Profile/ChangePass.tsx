@@ -17,6 +17,7 @@ const BustripChangePassword: React.FC = () => {
   const [notice, setNotice] = useState<NoticeState | null>(null);
 
   const changePass = async () => {
+    setLoading(true);
     try {
       const res = await baseAPIAuth.put("/api/customer/check/changPassword",
         {
@@ -37,6 +38,8 @@ const BustripChangePassword: React.FC = () => {
           error.response?.data?.message ||
           "Đã có lỗi xảy ra, vui lòng thử lại.",
       });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -110,7 +113,9 @@ const BustripChangePassword: React.FC = () => {
             Trang cá nhân
           </Link>
         </p>
-      </div> {notice ? (
+      </div>
+
+      {notice ? (
         <>
           <style>{`
           @keyframes routeNoticeIn {

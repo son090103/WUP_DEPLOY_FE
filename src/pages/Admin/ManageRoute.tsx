@@ -14,22 +14,19 @@ type StopAny = Record<string, unknown>;
 
 type RouteRow = {
     _id: string;
-    // BE trả về field "start" và "end" (không phải start_id/stop_id)
     start?: StopAny;
     end?: StopAny;
-    // fallback nếu BE trả về start_id/stop_id
     start_id?: StopAny;
     stop_id?: StopAny;
     estimated_duration?: number;
     distance_km?: number;
     is_active: boolean;
-    name?: string; // BE có thể trả về name ghép sẵn
+    name?: string;
 };
 
 type PriceRow = {
     _id: string;
     route_id: string;
-    // BE có thể trả về start_id/end_id hoặc start/end
     start_id?: StopAny;
     end_id?: StopAny;
     start?: StopAny;
@@ -48,20 +45,16 @@ const authHeaders = () => {
     return { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) };
 };
 
-/** Thử nhiều field để lấy tên stop */
 const stopName = (stop: StopAny | null | undefined): string => {
-    // stop chưa populate → là string ObjectId
     if (!stop) return "—";
     if (typeof stop === "string") return `ID:${(stop as string).slice(-6)}`;
     if (typeof stop !== "object") return "—";
-    // stop đã populate → là object với các fields
     const candidates = ["name", "title", "stop_name", "location_name", "label", "address", "province"];
     for (const k of candidates) {
         if (typeof stop[k] === "string" && (stop[k] as string).trim()) {
             return stop[k] as string;
         }
     }
-    // fallback: lấy field string đầu tiên (bỏ qua _id, __v, các field đặc biệt)
     const skip = new Set(["_id", "__v", "is_active", "created_at", "updatedAt"]);
     for (const [k, v] of Object.entries(stop)) {
         if (!skip.has(k) && typeof v === "string" && v.trim()) return v;
@@ -70,7 +63,6 @@ const stopName = (stop: StopAny | null | undefined): string => {
     return id ? `ID:${id.slice(-6)}` : "Chưa có tên";
 };
 
-/** Hiển thị tên stop kèm tỉnh nếu có */
 const stopLabel = (stop: StopAny | null | undefined): string => {
     if (!stop || typeof stop !== "object") return stopName(stop);
     const name = stop.name as string | undefined;
@@ -79,13 +71,11 @@ const stopLabel = (stop: StopAny | null | undefined): string => {
     return name ?? stopName(stop);
 };
 
-/** Trích xuất array từ bất kỳ response shape nào */
 const extractArray = <T,>(data: unknown, ...extraPaths: string[][]): T[] => {
     if (Array.isArray(data)) return data as T[];
     if (data && typeof data === "object") {
         const d = data as Record<string, unknown>;
         if (Array.isArray(d.data)) return d.data as T[];
-        // thử các path phụ
         for (const path of extraPaths) {
             let cur: unknown = d;
             for (const key of path) {
@@ -180,10 +170,8 @@ const Confirm: React.FC<{ msg: string; onOk: () => void; onCancel: () => void; l
 ══════════════════════════════════════════════════════════════════ */
 const ManageRoute: React.FC = () => {
     const navigate = useNavigate();
-    /* ── Data — khởi tạo luôn là [] để tránh lỗi slice ── */
+    /* ── Data ── */
     const [routes, setRoutes] = useState<RouteRow[]>([]);
-    const [stops, setStops] = useState<StopOpt[]>([]);
-    // RouteStop list cho tuyến đang mở modal giá
     const [routeStops, setRouteStops] = useState<StopOpt[]>([]);
     const [routeStopsLoading, setRouteStopsLoading] = useState(false);
     const [busTypes, setBusTypes] = useState<BusTypeOpt[]>([]);
@@ -208,12 +196,10 @@ const ManageRoute: React.FC = () => {
     const [priceModal, setPriceModal] = useState<PriceModal>({ open: false });
     const [confirmDel, setConfirmDel] = useState<DelConfirm | null>(null);
 
-    // Inline edit giá vé
     const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
     const [editingValue, setEditingValue] = useState<string>("");
     const [savingInline, setSavingInline] = useState(false);
 
-    // Inline edit loại xe
     const [editingBusTypeId, setEditingBusTypeId] = useState<string | null>(null);
     const [savingBusType, setSavingBusType] = useState(false);
 
@@ -225,7 +211,6 @@ const ManageRoute: React.FC = () => {
 
     /* ══ FETCH ══ */
 
-    /** GET /api/admin/check/routes */
     const fetchRoutes = useCallback(async () => {
         setRouteLoading(true);
         setRouteError(null);
@@ -233,14 +218,11 @@ const ManageRoute: React.FC = () => {
             const res = await fetch(`${API_BASE}/api/admin/check/routes`, { headers: authHeaders() });
             const data = await res.json();
             if (!res.ok) throw new Error(data?.message ?? `HTTP ${res.status}`);
-            // extractArray đảm bảo luôn trả về []
-            // API trả về: { success, data: { routes: [], pagination: {} } }
             let list: RouteRow[] = [];
             if (Array.isArray(data)) list = data;
             else if (Array.isArray(data?.data)) list = data.data;
             else if (Array.isArray(data?.data?.routes)) list = data.data.routes;
             else if (Array.isArray(data?.routes)) list = data.routes;
-            // normalize: map start→start_id, end→stop_id nếu cần
             const normalized = list.map((r: RouteRow) => ({
                 ...r,
                 start_id: r.start_id ?? r.start,
@@ -255,7 +237,6 @@ const ManageRoute: React.FC = () => {
         }
     }, []);
 
-    /** GET /api/admin/check/routes/:routeId/prices */
     const fetchPrices = useCallback(async (routeId: string) => {
         setLoadingPriceMap((p) => ({ ...p, [routeId]: true }));
         try {
@@ -267,8 +248,6 @@ const ManageRoute: React.FC = () => {
             else if (Array.isArray(data?.data)) list = data.data;
             else if (Array.isArray(data?.data?.prices)) list = data.data.prices;
             else if (Array.isArray(data?.prices)) list = data.prices;
-            // normalize start→start_id, end→end_id
-            // Backend đã resolve thủ công → start_id/end_id có { name, province }
             const normPrices = list.map((p: PriceRow) => {
                 const raw = p as Record<string, unknown>;
                 const bp = raw.base_price ?? raw.price ?? raw.amount ?? raw.fare ?? 0;
@@ -287,22 +266,11 @@ const ManageRoute: React.FC = () => {
         }
     }, []);
 
-    /** GET stops */
-    const fetchStops = useCallback(async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/admin/check/getAllStops`, { headers: authHeaders() });
-            const data = await res.json();
-            setStops(extractArray<StopOpt>(data));
-        } catch { setStops([]); }
-    }, []);
-
-    /** GET RouteStop list cho 1 tuyến — dùng làm options trong modal giá */
     const fetchRouteStops = useCallback(async (routeId: string) => {
         setRouteStopsLoading(true);
         try {
             const res = await fetch(`${API_BASE}/api/admin/check/routes/${routeId}/stops`, { headers: authHeaders() });
             const data = await res.json();
-            // RouteStop shape: { stop_id: { _id, name, province }, stop_order, ... }
             let list: StopOpt[] = [];
             if (Array.isArray(data)) list = data;
             else if (Array.isArray(data?.data)) list = data.data;
@@ -313,9 +281,7 @@ const ManageRoute: React.FC = () => {
         finally { setRouteStopsLoading(false); }
     }, []);
 
-    /** GET bus types */
     const fetchBusTypes = useCallback(async () => {
-        // Thử nhiều endpoint — điều chỉnh đúng route BusType của project
         const endpoints = [
             `${API_BASE}/api/admin/notcheck/BusType`,
             `${API_BASE}/api/admin/check/busTypes`,
@@ -331,12 +297,11 @@ const ManageRoute: React.FC = () => {
                 if (list.length > 0) { setBusTypes(list); return; }
             } catch { continue; }
         }
-        setBusTypes([]); // không tìm được → bỏ qua, không crash
+        setBusTypes([]);
     }, []);
 
     useEffect(() => {
         fetchRoutes();
-        fetchStops();
         fetchBusTypes();
     }, []);
 
@@ -348,22 +313,18 @@ const ManageRoute: React.FC = () => {
                 next.delete(routeId);
             } else {
                 next.add(routeId);
-                // chỉ fetch lần đầu
                 if (pricesMap[routeId] === undefined) fetchPrices(routeId);
             }
             return next;
         });
     };
 
-    /* ══ Filter / Paginate — routes luôn là array nên filtered luôn là array ══ */
+    /* ══ Filter / Paginate ══ */
     const filtered = useMemo<RouteRow[]>(() => {
-        // guard: nếu routes không phải array thì trả về []
         if (!Array.isArray(routes)) return [];
-
         let list = [...routes];
         if (statusFilter === "active") list = list.filter((r) => r.is_active);
         if (statusFilter === "inactive") list = list.filter((r) => !r.is_active);
-
         const q = search.trim().toLowerCase();
         if (q) {
             list = list.filter((r) =>
@@ -407,18 +368,18 @@ const ManageRoute: React.FC = () => {
         fetchRouteStops(routeId);
     };
 
-    const openEditPrice = (p: PriceRow) => {
-        setPf({
-            start_id: (p.start_id?._id as string) ?? "",
-            end_id: (p.end_id?._id as string) ?? "",
-            bus_type_id: p.bus_type_id?._id ?? "",
-            base_price: (p.base_price ?? 0).toString(),
-            is_active: p.is_active,
-        });
-        setPfErr(null);
-        setPriceModal({ open: true, editing: p, routeId: p.route_id });
-        if (p.route_id) fetchRouteStops(p.route_id);
-    };
+    // const openEditPrice = (p: PriceRow) => {
+    //     setPf({
+    //         start_id: (p.start_id?._id as string) ?? "",
+    //         end_id: (p.end_id?._id as string) ?? "",
+    //         bus_type_id: p.bus_type_id?._id ?? "",
+    //         base_price: (p.base_price ?? 0).toString(),
+    //         is_active: p.is_active,
+    //     });
+    //     setPfErr(null);
+    //     setPriceModal({ open: true, editing: p, routeId: p.route_id });
+    //     if (p.route_id) fetchRouteStops(p.route_id);
+    // };
 
     const saveInlinePrice = async (priceId: string, routeId: string) => {
         if (!editingValue || isNaN(Number(editingValue)) || Number(editingValue) < 0) {
@@ -434,7 +395,6 @@ const ManageRoute: React.FC = () => {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data?.message ?? "Lỗi cập nhật giá");
-            // Cập nhật local state ngay — không cần refetch toàn bộ
             setPricesMap((prev) => ({
                 ...prev,
                 [routeId]: (prev[routeId] ?? []).map((p) =>
@@ -459,7 +419,6 @@ const ManageRoute: React.FC = () => {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data?.message ?? "Lỗi cập nhật loại xe");
-            // Cập nhật local state ngay
             const selectedBusType = busTypes.find((b) => b._id === newBusTypeId);
             setPricesMap((prev) => ({
                 ...prev,
@@ -510,7 +469,6 @@ const ManageRoute: React.FC = () => {
             const data = await res.json();
             if (!res.ok) throw new Error(data?.message ?? "Lỗi lưu giá chặng");
 
-            // refetch để cập nhật bảng giá
             await fetchPrices(routeId);
             setPriceModal({ open: false });
         } catch (e: unknown) {
@@ -634,8 +592,6 @@ const ManageRoute: React.FC = () => {
                                     const isOpen = expanded.has(r._id);
                                     const prices = pricesMap[r._id] ?? [];
                                     const loadingP = loadingPriceMap[r._id] ?? false;
-                                    const fromName = stopLabel(r.start_id);
-                                    const toName = stopLabel(r.stop_id);
                                     const shortId = r._id.slice(-7).toUpperCase();
 
                                     return (

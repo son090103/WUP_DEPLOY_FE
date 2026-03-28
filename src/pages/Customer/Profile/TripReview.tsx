@@ -10,10 +10,6 @@ interface NoticeState {
   message: string;
 }
 
-const formatTime = (d?: string | null) => {
-  if (!d) return "--:--";
-  return new Date(d).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-};
 
 const formatDate = (d?: string | null) => {
   if (!d) return "--/--/----";
@@ -39,8 +35,8 @@ function StarRating({ value, onChange, label }: { value: number; onChange: (v: n
             <Star
               size={22}
               className={`transition-colors ${star <= (hover || value)
-                  ? "fill-yellow-400 text-yellow-400"
-                  : "fill-none text-slate-300"
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-none text-slate-300"
                 }`}
             />
           </button>
@@ -56,7 +52,7 @@ export default function TripReview() {
   const [loading, setLoading] = useState(false);
   const [TripFinishedHistory, setTripFinishedHistory] = useState<getTripFinished[]>([]);
   const [notice, setNotice] = useState<NoticeState | null>(null);
-  const [reviewingOrder, setReviewingOrder] = useState<getTripFinished | null>(null,);
+  const [reviewingOrder, setReviewingOrder] = useState<getTripFinished | null>(null);
   const [reviewForm, setReviewForm] = useState<reviewForm>({
     booking_id: "",
     trip_id: "",
@@ -79,6 +75,7 @@ export default function TripReview() {
 
   // Hàm api lấy lịch sử trip đã kết thúc để đánh giá
   const getTripFinishedHistory = async () => {
+    setLoading(true);
     try {
       const res = await baseApiAuth.get(
         "/api/customer/check/getTripFinishedHistory",
@@ -87,6 +84,8 @@ export default function TripReview() {
       setTripFinishedHistory(res.data);
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -114,16 +113,18 @@ export default function TripReview() {
 
   // Hàm review trip
   const reviewTrip = async () => {
+    setSubmitting(true);
     try {
       console.log("data gửi", reviewForm);
-      const res = await baseApiAuth.post("/api/customer/check/reviewTrip",
-        reviewForm,
-      );
+      await baseApiAuth.post("/api/customer/check/reviewTrip", reviewForm);
       closeReview();
       getTripFinishedHistory();
       setNotice({ type: "success", title: "Thành công", message: "Gửi đánh giá thành công" });
     } catch (error: any) {
+      setSubmitResult({ type: "error", message: error.response?.data?.message || "Gửi đánh giá thất bại" });
       setNotice({ type: "error", title: "Thất bại", message: error.response?.data?.message || "Gửi đánh giá thất bại" });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -285,7 +286,7 @@ export default function TripReview() {
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-xl text-sm font-bold hover:from-yellow-500 hover:to-orange-500 transition-all shadow-md shadow-orange-200/50"
                       >
                         <MessageSquare size={14} />
-                        Đánh giá{" "}
+                        Đánh giá
                       </button>
                     </div>
                   </div>
@@ -380,8 +381,8 @@ export default function TripReview() {
               {submitResult && (
                 <div
                   className={`rounded-xl px-4 py-3 text-sm font-semibold ${submitResult.type === "success"
-                      ? "bg-green-50 text-green-700 border border-green-200"
-                      : "bg-red-50 text-red-700 border border-red-200"
+                    ? "bg-green-50 text-green-700 border border-green-200"
+                    : "bg-red-50 text-red-700 border border-red-200"
                     }`}
                 >
                   {submitResult.message}
@@ -413,47 +414,24 @@ export default function TripReview() {
           </div>
         </div>
       )}
+
       {notice ? (
         <>
           <style>{`
           @keyframes routeNoticeIn {
-            0% {
-              opacity: 0;
-              transform: translateY(10px) scale(0.95);
-            }
-            70% {
-              transform: translateY(-2px) scale(1.02);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
+            0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+            70% { transform: translateY(-2px) scale(1.02); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
           }
-
           @keyframes routeNoticeIcon {
-            0% {
-              transform: scale(0.4) rotate(-25deg);
-              opacity: 0;
-            }
-            55% {
-              transform: scale(1.18) rotate(8deg);
-              opacity: 1;
-            }
-            80% {
-              transform: scale(0.95) rotate(-4deg);
-            }
-            100% {
-              transform: scale(1) rotate(0);
-            }
+            0% { transform: scale(0.4) rotate(-25deg); opacity: 0; }
+            55% { transform: scale(1.18) rotate(8deg); opacity: 1; }
+            80% { transform: scale(0.95) rotate(-4deg); }
+            100% { transform: scale(1) rotate(0); }
           }
-
           @keyframes routeNoticePulse {
-            0% {
-              box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.32);
-            }
-            100% {
-              box-shadow: 0 0 0 16px rgba(16, 185, 129, 0);
-            }
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.32); }
+            100% { box-shadow: 0 0 0 16px rgba(16, 185, 129, 0); }
           }
         `}</style>
           <div

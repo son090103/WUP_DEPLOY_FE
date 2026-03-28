@@ -9,7 +9,6 @@ import {
   Star,
   ToggleLeft,
   ToggleRight,
-
   Navigation,
   Plus,
 } from "lucide-react";
@@ -18,27 +17,6 @@ import baseApiAuth from "../../api/auth";
 import type { getAllStopLocation } from "../../model/getAllLocationOfStop";
 import { CircleCheck, TriangleAlert } from "lucide-react";
 
-
-type StopLocationModel = {
-  _id: string;
-  stop_id: string;
-  location_name: string;
-  address?: string;
-  status?: boolean;
-  is_active?: boolean;
-  location_type?: "PICKUP" | "DROPOFF" | "BOTH";
-  location?: { type?: string; coordinates?: number[] };
-  created_at?: string;
-};
-
-type StopModel = {
-  _id: string;
-  province: string;
-  stopLocation_id?: { _id?: string; location_name?: string } | string;
-  is_active?: boolean;
-  location?: { type?: string; coordinates?: number[] };
-  created_at?: string;
-};
 interface NoticeState {
   type: "success" | "error";
   title: string;
@@ -46,13 +24,6 @@ interface NoticeState {
 }
 
 /* ──────────────────────── Helpers ──────────────────────── */
-
-const API = "http://localhost:3000";
-const token = () => localStorage.getItem("accessToken") ?? "";
-const authHeaders = (): HeadersInit => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${token()}`,
-});
 
 const locationTypeLabel: Record<string, string> = {
   PICKUP: "Điểm đón",
@@ -66,28 +37,16 @@ const ManageStopLocation: React.FC = () => {
   const navigate = useNavigate();
   /* ---- state: stops ---- */
   const [stops, setStops] = useState<allStops[]>([]);
-  const [loadingStops, setLoadingStops] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [selectedStop, setSelectedStop] = useState<allStops | null>(null);
   const [mainLocId, setMainLocId] = useState("");
   /* ---- state: stop locations ---- */
   const [locations, setLocations] = useState<getAllStopLocation[]>([]);
-  const [loadingLocations, setLoadingLocations] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
-  /* ---- state: edit location modal ---- */
-  const [editingLoc, setEditingLoc] = useState<StopLocationModel | null>(null);
-  const [editForm, setEditForm] = useState({ location_name: "", address: "", location_type: "BOTH" as string });
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
 
   /* ---- state: update stopLocation_id modal ---- */
   const [showSetMain, setShowSetMain] = useState(false);
-
-  const [savingMain, setSavingMain] = useState(false);
-
-  /* ---- state: toggle stop status ---- */
-  const [togglingStopStatus, setTogglingStopStatus] = useState(false);
 
   /* ---- pagination ---- */
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,7 +57,7 @@ const ManageStopLocation: React.FC = () => {
     getAllStops();
   }, [])
 
-  // Hàm lấy tất cả các Stop ko co'status
+  // Hàm lấy tất cả các Stop
   const getAllStops = async () => {
     try {
       const res = await baseApiAuth.get("/api/admin/check/getAllStopsNotFilter");
@@ -108,9 +67,9 @@ const ManageStopLocation: React.FC = () => {
       console.error(error);
     }
   }
+
   const handleSelectStop = (stop: allStops) => {
     setSelectedStop(stop);
-    // Auto set mainLocId từ stopLocation_id
     const ref = stop.stopLocation_id;
     if (ref && typeof ref === "object" && ref._id) {
       setMainLocId(ref._id);
@@ -118,6 +77,7 @@ const ManageStopLocation: React.FC = () => {
       setMainLocId("");
     }
   };
+
   // Hàm userEffect cho getAllStopLocationOfStops
   useEffect(() => {
     console.log("Id la", selectedStop?._id)
@@ -125,6 +85,7 @@ const ManageStopLocation: React.FC = () => {
       getAllStopLocationOfStops(selectedStop._id);
     }
   }, [selectedStop]);
+
   // Hàm Lấy tất cả stoplocation thuộc stop
   const getAllStopLocationOfStops = async (stopId: string) => {
     try {
@@ -147,15 +108,14 @@ const ManageStopLocation: React.FC = () => {
       console.log(error);
     }
   }
-  // Hàm update status của Stop
+
+  // Hàm update status của StopLocation
   const updateStopLocationStatus = async (stopLocationId: string) => {
     try {
       const res = await baseApiAuth.patch("/api/admin/check/updateStopLocationStatus", null, {
         params: { stopLocation_id: stopLocationId }
       });
       console.log("Data Update:", res.data);
-
-      // Refresh lại danh sách locations
       if (selectedStop?._id) {
         await getAllStopLocationOfStops(selectedStop._id);
       }
@@ -163,12 +123,12 @@ const ManageStopLocation: React.FC = () => {
       console.log(error);
     }
   };
+
   // Hàm update main stop location cho stop
   const updateMainStopLocation = async (stopId: string, newStopLocationID: string) => {
     try {
       const res = await baseApiAuth.patch("/api/admin/check/updateMainStopLocation", null, { params: { stop_id: stopId, newStopLocation_id: newStopLocationID } });
       setShowSetMain(false);
-
       setNotice({
         type: "success",
         title: "Cập nhật thành công",
@@ -176,7 +136,6 @@ const ManageStopLocation: React.FC = () => {
       });
     } catch (error: any) {
       console.log(error);
-
       setShowSetMain(false);
       setNotice({
         type: "error",
@@ -187,8 +146,6 @@ const ManageStopLocation: React.FC = () => {
       });
     }
   }
-
-
 
   /* ──────────── Filtered stops ──────────── */
   const filteredStops = useMemo(() => {
@@ -211,7 +168,6 @@ const ManageStopLocation: React.FC = () => {
   /* ──────────── Get main location name ──────────── */
   const getMainLocName = () => {
     const ref = selectedStop?.stopLocation_id;
-
     if (ref && typeof ref === "object" && ref.location_name) return ref.location_name;
     return "Chưa gán";
   };
@@ -291,9 +247,7 @@ const ManageStopLocation: React.FC = () => {
 
           {/* Stop list */}
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            {loadingStops ? (
-              <div className="p-8 text-center text-gray-400 text-sm">Đang tải...</div>
-            ) : pagedStops.length === 0 ? (
+            {pagedStops.length === 0 ? (
               <div className="p-8 text-center text-gray-400 text-sm">Không tìm thấy tỉnh thành</div>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -331,9 +285,7 @@ const ManageStopLocation: React.FC = () => {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="border-t border-gray-100 px-4 py-2 flex items-center justify-between text-xs text-gray-500">
-                <span>
-                  Trang {currentPage}/{totalPages}
-                </span>
+                <span>Trang {currentPage}/{totalPages}</span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -378,8 +330,7 @@ const ManageStopLocation: React.FC = () => {
                   </div>
                   <button
                     onClick={() => updateStopStatus(selectedStop._id)}
-                    disabled={togglingStopStatus}
-                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 ${selectedStop.is_active !== false
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${selectedStop.is_active !== false
                       ? "bg-green-100 text-green-700 hover:bg-green-200"
                       : "bg-red-100 text-red-700 hover:bg-red-200"
                       }`}
@@ -390,7 +341,7 @@ const ManageStopLocation: React.FC = () => {
                     ) : (
                       <ToggleLeft size={16} />
                     )}
-                    {togglingStopStatus ? "Đang xử lý..." : selectedStop.is_active !== false ? "Hoạt động" : "Tạm ngưng"}
+                    {selectedStop.is_active !== false ? "Hoạt động" : "Tạm ngưng"}
                   </button>
                 </div>
 
@@ -421,9 +372,7 @@ const ManageStopLocation: React.FC = () => {
                   </div>
                 </div>
 
-                {loadingLocations ? (
-                  <div className="p-8 text-center text-gray-400 text-sm">Đang tải vị trí...</div>
-                ) : locations.length === 0 ? (
+                {locations.length === 0 ? (
                   <div className="p-8 text-center text-gray-400 text-sm">
                     Chưa có vị trí nào cho tỉnh thành này
                   </div>
@@ -482,7 +431,6 @@ const ManageStopLocation: React.FC = () => {
 
                           {/* Actions */}
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {/* Toggle status */}
                             <button
                               onClick={() => updateStopLocationStatus(loc._id)}
                               title={loc.is_active ? "Tắt hoạt động" : "Bật hoạt động"}
@@ -504,73 +452,6 @@ const ManageStopLocation: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* ============ MODAL: Edit location ============ */}
-      {editingLoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h3 className="text-lg font-bold text-gray-900">Chỉnh sửa vị trí</h3>
-              <button onClick={() => setEditingLoc(null)} className="text-gray-500 hover:text-gray-700">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-4 p-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tên vị trí</label>
-                <input
-                  value={editForm.location_name}
-                  onChange={(e) => setEditForm({ ...editForm, location_name: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ</label>
-                <input
-                  value={editForm.address}
-                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Loại vị trí</label>
-                <select
-                  value={editForm.location_type}
-                  onChange={(e) => setEditForm({ ...editForm, location_type: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="PICKUP">Điểm đón</option>
-                  <option value="DROPOFF">Điểm trả</option>
-                  <option value="BOTH">Đón & Trả</option>
-                </select>
-              </div>
-
-              {saveError && (
-                <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{saveError}</div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
-              <button
-                onClick={() => setEditingLoc(null)}
-                disabled={saving}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Hủy
-              </button>
-              <button
-                disabled={saving}
-                className="rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {saving ? "Đang lưu..." : "Lưu thay đổi"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ============ MODAL: Set main stopLocation ============ */}
       {showSetMain && selectedStop && (
@@ -624,14 +505,13 @@ const ManageStopLocation: React.FC = () => {
             <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 onClick={() => setShowSetMain(false)}
-                disabled={savingMain}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
                 Hủy
               </button>
               <button
                 onClick={() => updateMainStopLocation(selectedStop._id, mainLocId)}
-                disabled={savingMain || !mainLocId}
+                disabled={!mainLocId}
                 className="rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
               >
                 Xác nhận
@@ -640,47 +520,25 @@ const ManageStopLocation: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ============ Notice Modal ============ */}
       {notice ? (
         <>
           <style>{`
           @keyframes routeNoticeIn {
-            0% {
-              opacity: 0;
-              transform: translateY(10px) scale(0.95);
-            }
-            70% {
-              transform: translateY(-2px) scale(1.02);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
+            0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+            70% { transform: translateY(-2px) scale(1.02); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
           }
-
           @keyframes routeNoticeIcon {
-            0% {
-              transform: scale(0.4) rotate(-25deg);
-              opacity: 0;
-            }
-            55% {
-              transform: scale(1.18) rotate(8deg);
-              opacity: 1;
-            }
-            80% {
-              transform: scale(0.95) rotate(-4deg);
-            }
-            100% {
-              transform: scale(1) rotate(0);
-            }
+            0% { transform: scale(0.4) rotate(-25deg); opacity: 0; }
+            55% { transform: scale(1.18) rotate(8deg); opacity: 1; }
+            80% { transform: scale(0.95) rotate(-4deg); }
+            100% { transform: scale(1) rotate(0); }
           }
-
           @keyframes routeNoticePulse {
-            0% {
-              box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.32);
-            }
-            100% {
-              box-shadow: 0 0 0 16px rgba(16, 185, 129, 0);
-            }
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.32); }
+            100% { box-shadow: 0 0 0 16px rgba(16, 185, 129, 0); }
           }
         `}</style>
           <div
@@ -725,12 +583,8 @@ const ManageStopLocation: React.FC = () => {
                   )}
                 </span>
                 <div className="flex-1">
-                  <h3 className="text-base font-black text-[#111827]">
-                    {notice.title}
-                  </h3>
-                  <p className="mt-1 text-sm font-medium text-[#4b5563]">
-                    {notice.message}
-                  </p>
+                  <h3 className="text-base font-black text-[#111827]">{notice.title}</h3>
+                  <p className="mt-1 text-sm font-medium text-[#4b5563]">{notice.message}</p>
                 </div>
               </div>
               <div className="mt-5 flex justify-end">
