@@ -34,6 +34,17 @@ interface Summary {
     count: number;
 }
 
+type TooltipPayloadItem = {
+    color: string;
+    name: string;
+    value: number;
+};
+
+type PieTooltipPayloadItem = {
+    name: string;
+    value: number;
+};
+
 /* ─── Auth headers ──────────────────────────────────────── */
 const authHeaders = () => {
     const t = localStorage.getItem("accessToken") ?? "";
@@ -83,7 +94,7 @@ const StatCard = ({ icon: Icon, label, value, unit, trend, subtext, gradient }: 
 /* ─── Custom Tooltip ────────────────────────────────────── */
 const CustomTooltip = ({ active, payload, label }: {
     active?: boolean;
-    payload?: { color: string; name: string; value: number }[];
+    payload?: TooltipPayloadItem[];
     label?: string;
 }) => {
     if (!active || !payload?.length) return null;
@@ -97,6 +108,25 @@ const CustomTooltip = ({ active, payload, label }: {
                     <span className="text-white text-xs font-bold">{fmt(entry.value)}</span>
                 </div>
             ))}
+        </div>
+    );
+};
+
+/* ─── Pie Custom Tooltip ────────────────────────────────── */
+const PieCustomTooltip = ({ active, payload, grandTotal }: {
+    active?: boolean;
+    payload?: PieTooltipPayloadItem[];
+    grandTotal: number;
+}) => {
+    if (!active || !payload?.length) return null;
+    const item = payload[0];
+    return (
+        <div className="bg-gray-900/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-2xl border border-gray-700/50">
+            <p className="text-white text-xs font-bold">{item.name}</p>
+            <p className="text-gray-300 text-xs">{fmt(item.value)}</p>
+            <p className="text-orange-300 text-xs font-semibold">
+                {grandTotal > 0 ? ((item.value / grandTotal) * 100).toFixed(1) : 0}%
+            </p>
         </div>
     );
 };
@@ -381,21 +411,7 @@ export default function RevenueDetail() {
                                             <Cell fill="url(#pieOrange)" />
                                             <Cell fill="url(#pieBlue)" />
                                         </Pie>
-                                        <Tooltip
-                                            content={({ active, payload }: { active?: boolean; payload?: { name: string; value: number }[] }) => {
-                                                if (!active || !payload?.length) return null;
-                                                const item = payload[0];
-                                                return (
-                                                    <div className="bg-gray-900/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-2xl border border-gray-700/50">
-                                                        <p className="text-white text-xs font-bold">{item.name}</p>
-                                                        <p className="text-gray-300 text-xs">{fmt(item.value)}</p>
-                                                        <p className="text-orange-300 text-xs font-semibold">
-                                                            {grandTotal > 0 ? ((item.value / grandTotal) * 100).toFixed(1) : 0}%
-                                                        </p>
-                                                    </div>
-                                                );
-                                            }}
-                                        />
+                                        <Tooltip content={<PieCustomTooltip grandTotal={grandTotal} />} />
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div className="px-6 pb-6 space-y-3">
