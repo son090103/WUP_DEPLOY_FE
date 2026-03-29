@@ -58,21 +58,7 @@ type StopOption = {
     province?: string;
 };
 
-type PermissionKey =
-    | "view_revenue_report"
-    | "manage_staff"
-    | "edit_route_schedule"
-    | "manage_booking"
-    | "cancel_refund";
 
-/* ─────────────────────────── Constants ─────────────────────── */
-const DEFAULT_PERMISSIONS: Record<PermissionKey, boolean> = {
-    view_revenue_report: true,
-    manage_staff: false,
-    edit_route_schedule: true,
-    manage_booking: true,
-    cancel_refund: false,
-};
 
 const STATUS_OPTIONS = [
     { value: "active", label: "Hoạt động" },
@@ -157,17 +143,7 @@ const inputCls =
 const selectCls =
     "w-full rounded-lg border border-[#e6d5c3] bg-[#fffdfb] px-4 py-3 text-sm font-semibold text-[#4a3426] outline-none transition focus:border-[#f39a32] focus:ring-2 focus:ring-[#f39a32]/20 cursor-pointer";
 
-const Toggle: React.FC<{ checked: boolean; onChange: () => void }> = ({ checked, onChange }) => (
-    <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={onChange}
-        className={`relative w-10 h-6 rounded-full transition-colors duration-200 focus:outline-none ${checked ? "bg-[#FF5722]" : "bg-gray-300"}`}
-    >
-        <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${checked ? "translate-x-4" : "translate-x-0"}`} />
-    </button>
-);
+
 
 const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
     const cfg =
@@ -207,7 +183,6 @@ const ManageUser: React.FC = () => {
     const [updating, setUpdating] = useState(false);
     const [updateError, setUpdateError] = useState<string | null>(null);
 
-    const [permissions, setPermissions] = useState<Record<PermissionKey, boolean>>(DEFAULT_PERMISSIONS);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [addFormData, setAddFormData] = useState({
@@ -329,20 +304,7 @@ const ManageUser: React.FC = () => {
         return filteredUsers.slice(start, start + itemsPerPage);
     }, [filteredUsers, currentPage]);
 
-    /* ═══ Edit handlers ═══ */
-    const handleEdit = (user: UserRow) => {
-        setSelectedUser(user);
-        const st = (user.raw?.status as string) || "active";
-        setFormData({
-            name: user.name,
-            contact: user.contact === "—" ? "" : user.contact,
-            roleId: user.roleId ?? "",
-            roleName: user.roleName ?? "",
-            status: ["inactive", "banned"].includes(st) ? st : "active",
-        });
-        setUpdateError(null);
-        setIsModalOpen(true);
-    };
+
 
     const closeModal = () => { setIsModalOpen(false); setSelectedUser(null); setUpdateError(null); };
 
@@ -570,15 +532,7 @@ const ManageUser: React.FC = () => {
                                                             </select>
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <button
-                                                            onClick={() => handleEdit(u)}
-                                                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#FF5722] hover:bg-orange-50 transition"
-                                                            aria-label="Chỉnh sửa"
-                                                        >
-                                                            <Edit size={15} />
-                                                        </button>
-                                                    </td>
+
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -609,43 +563,6 @@ const ManageUser: React.FC = () => {
                                     </div>
                                 </>
                             )}
-                        </div>
-                    </div>
-
-                    {/* ── Right: Permissions ── */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                        <h3 className="text-sm font-bold text-gray-900 mb-5">Quản lý quyền hạn</h3>
-                        <div className="space-y-6">
-                            {[
-                                {
-                                    section: "Hệ thống & báo cáo",
-                                    items: [
-                                        { key: "view_revenue_report" as PermissionKey, label: "Xem báo cáo doanh thu" },
-                                        { key: "manage_staff" as PermissionKey, label: "Quản lý nhân sự" },
-                                    ],
-                                },
-                                {
-                                    section: "Vận hành",
-                                    items: [
-                                        { key: "edit_route_schedule" as PermissionKey, label: "Sửa tuyến xe / Lịch trình" },
-                                        { key: "manage_booking" as PermissionKey, label: "Quản lý đặt vé" },
-                                        { key: "cancel_refund" as PermissionKey, label: "Hủy vé / Hoàn tiền" },
-                                    ],
-                                },
-                            ].map(({ section, items }) => (
-                                <div key={section}>
-                                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">{section}</p>
-                                    <div className="space-y-3.5">
-                                        {items.map(({ key, label }) => (
-                                            <div key={key} className="flex items-center justify-between gap-3">
-                                                <span className="text-sm text-gray-700">{label}</span>
-                                                <Toggle checked={permissions[key]}
-                                                    onChange={() => setPermissions((p) => ({ ...p, [key]: !p[key] }))} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     </div>
                 </div>
