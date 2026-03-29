@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { MapPin, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -12,7 +12,8 @@ interface ShiftView {
     name: string;
     time: string;
     status: string;
-    actual_shift_start: string | null; // ✅ thêm
+    actual_shift_start: string | null;
+    actual_shift_end: string | null;
 }
 
 interface TripDetailProps {
@@ -20,6 +21,9 @@ interface TripDetailProps {
     arrivalTime: string; arrivalLocation: string;
     duration: string; distance: string; date: string;
     stops: TripStop[]; vehicleType: string; shifts: ShiftView[];
+    tripId: string;
+    onCompleteShift: (tripId: string) => Promise<void>;
+    completingId: string | null;
 }
 
 interface Stop { _id: string; name: string; city?: string; type?: string; latitude?: number; longitude?: number; }
@@ -28,7 +32,8 @@ interface RouterStop { _id: string; route_id: string; stop_id: Stop | null; stop
 interface DriverShift {
     shift_start: string;
     shift_end: string;
-    actual_shift_start: string | null; // ✅ thêm
+    actual_shift_start: string | null;
+    actual_shift_end: string | null;
     status: string;
     driver_id: { _id: string; name: string; status: string; };
 }
@@ -40,10 +45,13 @@ interface TripData {
     drivers: DriverShift[];
     router_stops: RouterStop[];
 }
+
 const API_BASE = import.meta.env.VITE_API_URL;
+
 const TripDetail: React.FC<TripDetailProps> = ({
     departureTime, departureLocation, arrivalTime, arrivalLocation,
-    duration, distance, date, stops, vehicleType, shifts
+    duration, distance, date, stops, vehicleType, shifts,
+    tripId, onCompleteShift, completingId
 }) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const users = useSelector((state: RootState) => state.user.user as user);
@@ -101,14 +109,19 @@ const TripDetail: React.FC<TripDetailProps> = ({
                         <div className="space-y-2">
                             {shifts.length > 0 ? shifts.map((s, i) => {
                                 const isMyShift = String(users?._id) === String(s._id);
+                                const statusUp = s.status?.toUpperCase();
+
                                 let statusLabel = 'Chưa xác định';
                                 let statusColor = 'bg-gray-100 text-gray-700';
-                                switch (s.status?.toUpperCase()) {
+                                switch (statusUp) {
                                     case 'PENDING': statusLabel = 'Sắp tới'; statusColor = 'bg-blue-100 text-blue-700'; break;
                                     case 'RUNNING': statusLabel = 'Đang đi'; statusColor = 'bg-green-100 text-green-700'; break;
                                     case 'DONE': statusLabel = 'Đã hoàn thành'; statusColor = 'bg-purple-100 text-purple-700'; break;
                                     default: statusLabel = s.status || 'Không xác định';
                                 }
+
+                                const isCompleting = completingId === tripId;
+
                                 return (
                                     <div
                                         key={i}
@@ -117,29 +130,38 @@ const TripDetail: React.FC<TripDetailProps> = ({
                                         <div className="flex flex-col min-w-0 flex-1">
                                             <span className="font-semibold text-gray-900 text-sm truncate">{s.name}</span>
                                             <span className="text-xs text-gray-600">{s.time}</span>
-                                            {/* ✅ Hiển thị thời gian bắt đầu thực tế */}
-                                            {s.actual_shift_start ? (
+
+                                            {s.actual_shift_start && (
                                                 <span className="text-xs text-green-600 font-semibold mt-1 flex items-center gap-1">
                                                     ✅ Bắt đầu thực tế: {s.actual_shift_start}
                                                 </span>
-                                            ) : (
-                                                isMyShift && (
-                                                    <span className="text-xs text-gray-400 mt-1 italic">Chưa bắt đầu ca</span>
-                                                )
+                                            )}
+                                            {s.actual_shift_end && (
+                                                <span className="text-xs text-purple-600 font-semibold mt-0.5 flex items-center gap-1">
+                                                    🏁 Kết thúc thực tế: {s.actual_shift_end}
+                                                </span>
+                                            )}
+                                            {isMyShift && !s.actual_shift_start && (
+                                                <span className="text-xs text-gray-400 mt-1 italic">Chưa bắt đầu ca</span>
                                             )}
                                         </div>
+
                                         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                                             <span className={`text-xs font-medium px-2 lg:px-3 py-1 rounded-full ${statusColor}`}>
                                                 {statusLabel}
                                             </span>
-                                            {isMyShift ? (
+
+                                            {isMyShift && statusUp === 'RUNNING' && (
                                                 <button
-                                                    onClick={() => console.log('Hoàn thành ca lái:', s)}
-                                                    className="px-3 lg:px-5 py-1.5 lg:py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded-lg shadow-sm transition-all"
+                                                    onClick={() => onCompleteShift(tripId)}
+                                                    disabled={isCompleting}
+                                                    className="px-3 lg:px-5 py-1.5 lg:py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg shadow-sm transition-all"
                                                 >
-                                                    Hoàn thành
+                                                    {isCompleting ? 'Đang xử lý...' : 'Hoàn thành'}
                                                 </button>
-                                            ) : (
+                                            )}
+
+                                            {!isMyShift && (
                                                 <span className="text-xs text-gray-500 italic hidden lg:inline">Ca của tài xế khác</span>
                                             )}
                                         </div>
@@ -195,82 +217,120 @@ const TripDetail: React.FC<TripDetailProps> = ({
 
 export default function TripDetailsDemo() {
     const { id } = useParams<{ id: string }>();
-    const [trip, setTrip] = useState<TripDetailProps | null>(null);
+    const [trip, setTrip] = useState<Omit<TripDetailProps, 'tripId' | 'onCompleteShift' | 'completingId'> | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [completingId, setCompletingId] = useState<string | null>(null);
 
-    useEffect(() => {
+    const mapTripData = (data: TripData): Omit<TripDetailProps, 'tripId' | 'onCompleteShift' | 'completingId'> => {
+        // ✅ Guard: đảm bảo router_stops tồn tại
+        const rawStops: RouterStop[] = Array.isArray(data.router_stops) ? data.router_stops : [];
+
+        const validStops = rawStops
+            .filter((s): s is RouterStop & { stop_id: Stop } => s.stop_id !== null)
+            .sort((a, b) => a.stop_order - b.stop_order);
+
+        if (validStops.length < 2) throw new Error('Dữ liệu lộ trình không hợp lệ');
+
+        const startDate = new Date(data.departure_time);
+        const endDate = data.drivers.length > 0
+            ? new Date(data.drivers[data.drivers.length - 1].shift_end)
+            : startDate;
+
+        const totalMs = endDate.getTime() - startDate.getTime();
+        const totalMinutes = Math.floor(totalMs / (1000 * 60));
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const durationStr = `${hours > 0 ? hours + 'h ' : ''}${minutes > 0 ? minutes + 'p' : ''}`.trim() || '—';
+
+        const numIntervals = validStops.length - 1;
+        const timePerInterval = numIntervals > 0 ? totalMs / numIntervals : 0;
+
+        const mappedStops: TripStop[] = validStops.map((s, index) => {
+            const stopTime = new Date(startDate.getTime() + index * timePerInterval);
+            return {
+                time: stopTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }),
+                location: s.stop_id.name,
+                address: s.stop_id.city || s.stop_id.type || '—'
+            };
+        });
+
+        const mappedShifts: ShiftView[] = (data.drivers || []).map((d) => ({
+            _id: d.driver_id._id,
+            name: d.driver_id.name,
+            time: `${new Date(d.shift_start).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(d.shift_end).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`,
+            status: d.status || 'PENDING',
+            actual_shift_start: d.actual_shift_start
+                ? new Date(d.actual_shift_start).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                : null,
+            actual_shift_end: d.actual_shift_end
+                ? new Date(d.actual_shift_end).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                : null,
+        }));
+
+        return {
+            departureTime: startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }),
+            departureLocation: validStops[0].stop_id.name,
+            arrivalTime: mappedStops[mappedStops.length - 1].time,
+            arrivalLocation: validStops[validStops.length - 1].stop_id.name,
+            duration: durationStr,
+            distance: `${data.route_id?.distance_km || '?'} km`,
+            date: startDate.toLocaleDateString('vi-VN'),
+            vehicleType: data.bus_id?.bus_type_id?.name || 'Không xác định',
+            stops: mappedStops,
+            shifts: mappedShifts,
+        };
+    };
+
+    // ✅ useCallback để dùng lại trong handleCompleteShift
+    const fetchTrip = useCallback(async () => {
         if (!id) { setError('Không tìm thấy ID chuyến đi'); return; }
         const token = localStorage.getItem('accessToken');
         if (!token) { setError('Vui lòng đăng nhập lại'); return; }
 
-        const fetchTrip = async () => {
-            try {
-                const res = await fetch(`${API_BASE}/api/driver/check/trip/${id}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error('Không thể tải thông tin chuyến đi');
-                const json = await res.json();
-                const data: TripData = json.data;
-
-                const validStops = data.router_stops
-                    .filter((s): s is RouterStop & { stop_id: Stop } => s.stop_id !== null)
-                    .sort((a, b) => a.stop_order - b.stop_order);
-
-                if (validStops.length < 2) throw new Error('Dữ liệu lộ trình không hợp lệ');
-
-                const startDate = new Date(data.departure_time);
-                const endDate = data.drivers.length > 0
-                    ? new Date(data.drivers[data.drivers.length - 1].shift_end)
-                    : startDate;
-
-                const totalMs = endDate.getTime() - startDate.getTime();
-                const totalMinutes = Math.floor(totalMs / (1000 * 60));
-                const hours = Math.floor(totalMinutes / 60);
-                const minutes = totalMinutes % 60;
-                const durationStr = `${hours > 0 ? hours + 'h ' : ''}${minutes > 0 ? minutes + 'p' : ''}`.trim() || '—';
-
-                const numIntervals = validStops.length - 1;
-                const timePerInterval = numIntervals > 0 ? totalMs / numIntervals : 0;
-
-                const mappedStops: TripStop[] = validStops.map((s, index) => {
-                    const stopTime = new Date(startDate.getTime() + index * timePerInterval);
-                    return {
-                        time: stopTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }),
-                        location: s.stop_id.name,
-                        address: s.stop_id.city || s.stop_id.type || '—'
-                    };
-                });
-
-                // ✅ Map shifts với actual_shift_start
-                const mappedShifts: ShiftView[] = data.drivers.map((d) => ({
-                    _id: d.driver_id._id,
-                    name: d.driver_id.name,
-                    time: `${new Date(d.shift_start).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(d.shift_end).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`,
-                    status: d.status || 'PENDING', // ✅ lấy từ driver shift không phải driver_id
-                    actual_shift_start: d.actual_shift_start
-                        ? new Date(d.actual_shift_start).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-                        : null,
-                }));
-
-                setTrip({
-                    departureTime: startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }),
-                    departureLocation: validStops[0].stop_id.name,
-                    arrivalTime: mappedStops[mappedStops.length - 1].time,
-                    arrivalLocation: validStops[validStops.length - 1].stop_id.name,
-                    duration: durationStr,
-                    distance: `${data.route_id?.distance_km || '?'} km`,
-                    date: startDate.toLocaleDateString('vi-VN'),
-                    vehicleType: data.bus_id?.bus_type_id?.name || 'Không xác định',
-                    stops: mappedStops,
-                    shifts: mappedShifts,
-                });
-            } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải dữ liệu');
-            }
-        };
-        fetchTrip();
+        try {
+            const res = await fetch(`${API_BASE}/api/driver/check/trip/${id}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Không thể tải thông tin chuyến đi');
+            const json = await res.json();
+            setTrip(mapTripData(json.data));
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải dữ liệu');
+        }
     }, [id]);
+
+    useEffect(() => { fetchTrip(); }, [fetchTrip]);
+
+    const handleCompleteShift = async (tripId: string) => {
+        if (!confirm('Xác nhận hoàn thành ca lái?')) return;
+
+        const token = localStorage.getItem('accessToken');
+        if (!token) { alert('Vui lòng đăng nhập lại'); return; }
+
+        setCompletingId(tripId);
+        try {
+            const res = await fetch(`${API_BASE}/api/driver/check/complete-shift`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ id: tripId }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.message || 'Có lỗi xảy ra');
+                return;
+            }
+
+            // ✅ Fetch lại đầy đủ thay vì remap response (tránh thiếu router_stops)
+            await fetchTrip();
+        } catch (err) {
+            console.error(err);
+            alert('Lỗi kết nối server');
+        } finally {
+            setCompletingId(null);
+        }
+    };
 
     if (error) return <div className="text-center py-10 text-red-600 font-medium">{error}</div>;
     if (!trip) return <div className="text-center py-10">Đang tải thông tin chuyến đi...</div>;
@@ -282,7 +342,12 @@ export default function TripDetailsDemo() {
                     <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Chi tiết chuyến đi</h1>
                     <p className="text-sm text-gray-600">Thông tin lộ trình, điểm dừng và ca lái</p>
                 </div>
-                <TripDetail {...trip} />
+                <TripDetail
+                    {...trip}
+                    tripId={id!}
+                    onCompleteShift={handleCompleteShift}
+                    completingId={completingId}
+                />
             </div>
         </div>
     );
