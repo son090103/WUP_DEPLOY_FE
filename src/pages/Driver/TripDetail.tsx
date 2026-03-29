@@ -199,16 +199,6 @@ const TripDetail: React.FC<TripDetailProps> = ({
                             ))}
                         </div>
                     </div>
-
-                    {/* Buttons */}
-                    <div className="mt-6 lg:mt-10 flex flex-col lg:flex-row gap-3 lg:gap-4 lg:justify-end">
-                        <button className="w-full lg:w-auto px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-all">
-                            Hủy bỏ
-                        </button>
-                        <button className="w-full lg:w-auto px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95">
-                            Xác nhận đi chuyến
-                        </button>
-                    </div>
                 </div>
             )}
         </div>
