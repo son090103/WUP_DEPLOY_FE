@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Bus, BarChart3 } from "lucide-react";
+import { Bus } from "lucide-react";
 
 
 
@@ -9,7 +9,6 @@ const TripListPage: React.FC = () => {
     const menuItems = [
         { label: "Danh sách chuyến đi", icon: Bus, path: "/assistant/chuyendi" },
         { label: "Danh sách Ca làm", icon: Bus, path: "/assistant/viewSlot" },
-        { label: "Doanh thu", icon: BarChart3, path: "/driver/revenue" },
     ];
 
     return (

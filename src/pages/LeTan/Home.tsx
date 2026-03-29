@@ -11,7 +11,6 @@ const TripListPageLeTan: React.FC = () => {
         { label: "Danh sách chuyến đi", icon: Bus, path: "/letan/chuyendi" },
         { label: "Đặt vé cho khách hàng", icon: Ticket, path: "/letan/ticketBooking" },
         { label: "Hoàn Tiền cho khách", icon: Package, path: "/letan/hoan-tien" },
-
     ];
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-28 px-6">
