@@ -28,16 +28,13 @@ interface TripResult {
     time?: any[];
 }
 
-// StopPoint = RouteStop document
-// _id       = RouteStop._id  → dùng cho booked-seats (start_id/end_id)
-// stop_id._id = Stop._id     → dùng cho end-point, location-point, getPrice
 interface StopPoint {
     _id: string;
     route_id: string;
     stop_order: number;
     is_pickup: boolean;
     stop_id: {
-        _id: string;       // Stop._id — dùng cho location-point, getPrice, end-point
+        _id: string;
         name: string;
         province: string;
         is_active: boolean;
@@ -60,8 +57,8 @@ interface Seat {
     status: "available" | "booked"; label: string;
 }
 
-//
 const API_BASE = import.meta.env.VITE_API_URL;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtTime = (d?: string) =>
     d ? new Date(d).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "--:--";
@@ -231,25 +228,25 @@ const StaffBookingAll: React.FC = () => {
     const [loadingSeats, setLoadingSeats] = useState(false);
     const [mobileRouteOpen, setMobileRouteOpen] = useState(true);
 
-    // ✅ route_id = trip._id (truyền vào diagram-bus, start-point, end-point, location-point, booked-seats, getPrice)
-    const tripId = tripDetail?.route_id ?? "";
-    const trip_booking_id = tripDetail?._id ?? "";
-    // ✅ bus_type_id = bus_type_id._id
-    const busTypeId = selectedTrip?.bus_id?.bus_type_id?._id ?? "";
-    console.log("trip id là: ", tripId)
+    // ✅ Giống BusSeatSelection file 1:
+    //    route_id (tripId)   = trip._id  → dùng cho diagram-bus, start-point, end-point, location-point, booked-seats, getPrice
+    //    trips_id            = trip._id  → dùng thêm cho start-point (giống location.state.trip_id trong file 1)
+    //    bus_type_id         = bus_type_id._id
+    const [routeIdForApis, setRouteIdForApis] = useState(""); // = trip._id (tripId trong file 1)
+    const [busTypeId, setBusTypeId] = useState("");
+    // trip_booking_id = tripDetail._id (Trip document _id từ diagram-bus response)
+    const [tripBookingId, setTripBookingId] = useState("");
 
     const [bookedSeatLabels, setBookedSeatLabels] = useState<string[]>([]);
     const [selectedFloor, setSelectedFloor] = useState<1 | 2>(1);
     const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
 
-    // ✅ selectedPickupId      = RouteStop._id   → dùng cho booked-seats
-    // ✅ selectedPickupStopId  = Stop._id        → dùng cho end-point, location-point, getPrice
     const [pickupPoints, setPickupPoints] = useState<StopPoint[]>([]);
     const [dropoffPoints, setDropoffPoints] = useState<StopPoint[]>([]);
-    const [selectedPickupId, setSelectedPickupId] = useState(""); // RouteStop._id
-    const [selectedPickupStopId, setSelectedPickupStopId] = useState(""); // Stop._id
-    const [selectedDropoffId, setSelectedDropoffId] = useState(""); // RouteStop._id
-    const [selectedDropoffStopId, setSelectedDropoffStopId] = useState(""); // Stop._id
+    const [selectedPickupId, setSelectedPickupId] = useState("");     // RouteStop._id → booked-seats
+    const [selectedPickupStopId, setSelectedPickupStopId] = useState(""); // Stop._id → end-point, location-point, getPrice
+    const [selectedDropoffId, setSelectedDropoffId] = useState("");   // RouteStop._id → booked-seats
+    const [selectedDropoffStopId, setSelectedDropoffStopId] = useState(""); // Stop._id → location-point, getPrice
 
     const [pickupLocationPoints, setPickupLocationPoints] = useState<LocationPoint[]>([]);
     const [dropoffLocationPoints, setDropoffLocationPoints] = useState<LocationPoint[]>([]);
@@ -268,6 +265,9 @@ const StaffBookingAll: React.FC = () => {
 
         // Reset
         setTripDetail(null);
+        setTripBookingId("");
+        setRouteIdForApis("");
+        setBusTypeId("");
         setBookedSeatLabels([]); setSelectedSeats([]);
         setSelectedPickupId(""); setSelectedPickupStopId("");
         setSelectedDropoffId(""); setSelectedDropoffStopId("");
@@ -277,57 +277,66 @@ const StaffBookingAll: React.FC = () => {
         setPickupPoints([]); setDropoffPoints([]);
         setSelectedFloor(1);
 
+        // ✅ Giống file 1: diagram-bus nhận route_id = trip._id
+        const tripId = trip._id;
+        const btId = trip.bus_id?.bus_type_id?._id ?? "";
+        setRouteIdForApis(tripId);
+        setBusTypeId(btId);
+
         try {
-            // ✅ diagram-bus: route_id = trip._id
             const res = await fetch(`${API_BASE}/api/customer/notcheck/diagram-bus`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ route_id: trip.route_id }),
+                body: JSON.stringify({ route_id: tripId }), // ✅ trip._id
             });
             const d = await res.json();
             setTripDetail(d.data);
-            console.log("trip detail là : ", d.data)
+            // tripDetail._id = Trip document _id từ response (dùng cho booked-seats trip_id)
+            if (d.data?._id) setTripBookingId(d.data._id);
         } catch (e) { console.error(e); }
         finally { setLoadingSeats(false); }
     };
 
-    // ✅ start-point: route_id = trip._id
+    // ✅ start-point: route_id = trip._id, trips_id = trip._id (giống file 1)
     useEffect(() => {
-        if (!tripId) return;
+        if (!routeIdForApis) return;
         fetch(`${API_BASE}/api/customer/notcheck/start-point`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ route_id: tripId }),
+            body: JSON.stringify({
+                route_id: routeIdForApis,  // ✅ trip._id
+                trips_id: routeIdForApis,  // ✅ trip._id (giống location.state.trip_id trong file 1)
+            }),
         }).then(r => r.json()).then(res => {
             const sorted = (res.data ?? []).sort((a: StopPoint, b: StopPoint) => a.stop_order - b.stop_order);
             setPickupPoints(sorted);
         }).catch(console.error);
-    }, [tripId]);
+    }, [routeIdForApis]);
 
-    // ✅ end-point: route_id = trip._id, start_id = Stop._id (selectedPickupStopId), bus_type_id
+    // ✅ end-point: route_id = trip._id, start_id = Stop._id, bus_type_id
     useEffect(() => {
-        if (!tripId) return;
+        if (!routeIdForApis) return;
         if (!selectedPickupStopId) {
             setSelectedDropoffId(""); setSelectedDropoffStopId("");
             setDropoffPoints([]);
+            setDropoffLocationPoints([]); setSelectedDropoffLocId("");
+            return;
         }
         setDropoffLocationPoints([]); setSelectedDropoffLocId("");
-
-        if (!selectedPickupStopId) return; // chờ chọn điểm đón trước
 
         fetch(`${API_BASE}/api/customer/notcheck/end-point`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                route_id: tripId,              // ✅ trip._id
+                route_id: routeIdForApis,       // ✅ trip._id
                 start_id: selectedPickupStopId, // ✅ Stop._id
-                bus_type_id: busTypeId,            // ✅ bus_type_id._id
+                bus_type_id: busTypeId,         // ✅ bus_type_id._id
             }),
         }).then(r => r.json()).then(res => {
             setDropoffPoints((res.data ?? []).sort((a: StopPoint, b: StopPoint) => a.stop_order - b.stop_order));
         }).catch(console.error);
-    }, [tripId, selectedPickupStopId]);
+    }, [routeIdForApis, selectedPickupStopId]);
 
-    // ✅ location-point cho pickup: stop_id = Stop._id, route_id = trip._id
+    // ✅ location-point pickup: stop_id = Stop._id, route_id = trip._id
     useEffect(() => {
-        if (!selectedPickupStopId || !tripId) {
+        if (!selectedPickupStopId || !routeIdForApis) {
             setPickupLocationPoints([]); setSelectedPickupLocId(""); return;
         }
         setLoadingPickupLocations(true);
@@ -336,7 +345,7 @@ const StaffBookingAll: React.FC = () => {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 stop_id: selectedPickupStopId, // ✅ Stop._id
-                route_id: tripId,               // ✅ trip._id
+                route_id: routeIdForApis,      // ✅ trip._id
             }),
         }).then(r => r.json()).then(res => {
             const data = (res.data ?? []).filter((p: any) => p.is_active !== false && p.status !== false);
@@ -344,11 +353,11 @@ const StaffBookingAll: React.FC = () => {
             if (data.length === 1) setSelectedPickupLocId(data[0]._id);
         }).catch(console.error)
             .finally(() => setLoadingPickupLocations(false));
-    }, [selectedPickupStopId, tripId]);
+    }, [selectedPickupStopId, routeIdForApis]);
 
-    // ✅ location-point cho dropoff: stop_id = Stop._id, route_id = trip._id
+    // ✅ location-point dropoff: stop_id = Stop._id, route_id = trip._id
     useEffect(() => {
-        if (!selectedDropoffStopId || !tripId) {
+        if (!selectedDropoffStopId || !routeIdForApis) {
             setDropoffLocationPoints([]); setSelectedDropoffLocId(""); return;
         }
         setLoadingDropoffLocations(true);
@@ -357,7 +366,7 @@ const StaffBookingAll: React.FC = () => {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 stop_id: selectedDropoffStopId, // ✅ Stop._id
-                route_id: tripId,                // ✅ trip._id
+                route_id: routeIdForApis,       // ✅ trip._id
             }),
         }).then(r => r.json()).then(res => {
             const data = (res.data ?? []).filter((p: any) => p.is_active !== false && p.status !== false);
@@ -365,44 +374,44 @@ const StaffBookingAll: React.FC = () => {
             if (data.length === 1) setSelectedDropoffLocId(data[0]._id);
         }).catch(console.error)
             .finally(() => setLoadingDropoffLocations(false));
-    }, [selectedDropoffStopId, tripId]);
+    }, [selectedDropoffStopId, routeIdForApis]);
 
-    // ✅ booked-seats: trip_id = trip._id, start_id = RouteStop._id, end_id = RouteStop._id
+    // ✅ booked-seats: trip_id = tripDetail._id, start_id = RouteStop._id, end_id = RouteStop._id
     useEffect(() => {
-        if (!tripDetail?._id || !selectedPickupId || !selectedDropoffId) {
+        if (!tripBookingId || !selectedPickupId || !selectedDropoffId) {
             setBookedSeatLabels([]); return;
         }
         fetch(`${API_BASE}/api/customer/notcheck/booked-seats`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                trip_id: tripDetail._id,     // ✅ Trip._id
+                trip_id: tripBookingId,      // ✅ tripDetail._id (Trip document)
                 start_id: selectedPickupId,  // ✅ RouteStop._id
                 end_id: selectedDropoffId,   // ✅ RouteStop._id
             }),
         }).then(r => r.json()).then(res => {
             setBookedSeatLabels(Array.isArray(res.data) ? res.data : []);
         }).catch(console.error);
-    }, [tripDetail?._id, selectedPickupId, selectedDropoffId]);
+    }, [tripBookingId, selectedPickupId, selectedDropoffId]);
 
     // ✅ getPrice: route_id = trip._id, start_id = Stop._id, end_id = Stop._id, bus_type_id
     useEffect(() => {
-        if (!selectedPickupStopId || !selectedDropoffStopId || !tripId || !busTypeId) {
+        if (!selectedPickupStopId || !selectedDropoffStopId || !routeIdForApis || !busTypeId) {
             setTicketPrice(null); return;
         }
         setLoadingPrice(true);
         fetch(`${API_BASE}/api/customer/notcheck/getPrice`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                route_id: tripId,              // ✅ trip._id
-                start_id: selectedPickupStopId, // ✅ Stop._id
-                end_id: selectedDropoffStopId,// ✅ Stop._id
-                bus_type_id: busTypeId,            // ✅ bus_type_id._id
+                route_id: routeIdForApis,        // ✅ trip._id
+                start_id: selectedPickupStopId,  // ✅ Stop._id
+                end_id: selectedDropoffStopId,   // ✅ Stop._id
+                bus_type_id: busTypeId,          // ✅ bus_type_id._id
             }),
         }).then(r => r.json()).then(res => {
             setTicketPrice(typeof res.data === "number" ? res.data : null);
         }).catch(console.error)
             .finally(() => setLoadingPrice(false));
-    }, [selectedPickupStopId, selectedDropoffStopId, tripId, busTypeId]);
+    }, [selectedPickupStopId, selectedDropoffStopId, routeIdForApis, busTypeId]);
 
     // Seats
     const floor1Seats = useMemo(() => {
@@ -510,14 +519,14 @@ const StaffBookingAll: React.FC = () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
-                    trip_id: trip_booking_id,
+                    trip_id: tripBookingId,                                                          // ✅ tripDetail._id
                     seat_labels: selectedSeatLabels,
                     ticket_price: ticketPrice,
                     passenger_name: form.name.trim(),
                     passenger_phone: form.phone.trim(),
                     payment_method: payMethod,
-                    pickup_stop_id: selectedPickupId,   // RouteStop._id
-                    dropoff_stop_id: selectedDropoffId,  // RouteStop._id
+                    pickup_stop_id: selectedPickupId,                                                // ✅ RouteStop._id
+                    dropoff_stop_id: selectedDropoffId,                                              // ✅ RouteStop._id
                     pickup_location_name: selectedPickupLoc?.location_name || selectedPickup?.stop_id.name || "",
                     dropoff_location_name: selectedDropoffLoc?.location_name || selectedDropoff?.stop_id.name || "",
                     pickup_city: selectedPickup?.stop_id.province || "",
@@ -537,6 +546,7 @@ const StaffBookingAll: React.FC = () => {
     const resetAll = () => {
         setStep("search");
         setRoutes([]); setTrips([]); setSelectedTrip(null); setTripDetail(null);
+        setTripBookingId(""); setRouteIdForApis(""); setBusTypeId("");
         setBookedSeatLabels([]); setSelectedSeats([]);
         setSuccessOrder(null); setForm({ name: "", phone: "" });
         setSelectedPickupId(""); setSelectedDropoffId(""); setTicketPrice(null);
@@ -741,33 +751,20 @@ const StaffBookingAll: React.FC = () => {
                                                                             .sort((a, b) => a.stop_order - b.stop_order)
                                                                             .map((stop, idx, arr) => (
                                                                                 <div key={stop._id} className="flex items-start gap-3 pl-8 relative">
-
-                                                                                    <div
-                                                                                        className={`absolute left-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0
-        ${idx === 0
-                                                                                                ? "bg-green-500 text-white"
-                                                                                                : idx === arr.length - 1
-                                                                                                    ? "bg-orange-600 text-white"
-                                                                                                    : "bg-white border-2 border-orange-300 text-orange-600"
-                                                                                            }`}
-                                                                                    >
+                                                                                    <div className={`absolute left-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0
+                                                                                        ${idx === 0 ? "bg-green-500 text-white"
+                                                                                            : idx === arr.length - 1 ? "bg-orange-600 text-white"
+                                                                                                : "bg-white border-2 border-orange-300 text-orange-600"}`}>
                                                                                         {idx + 1}
                                                                                     </div>
-
                                                                                     <div className="flex-1 min-w-0">
-                                                                                        <p className="text-sm font-semibold text-gray-800">
-                                                                                            {stop.stop_id?.province || stop.stop_id?.name}
-                                                                                        </p>
-
+                                                                                        <p className="text-sm font-semibold text-gray-800">{stop.stop_id?.province || stop.stop_id?.name}</p>
                                                                                         {stop.stop_id?.name && stop.stop_id?.province && (
                                                                                             <p className="text-xs text-gray-400">{stop.stop_id.name}</p>
                                                                                         )}
                                                                                     </div>
-
                                                                                     {stop.estimated_time > 0 && (
-                                                                                        <span className="text-[10px] text-orange-400 font-semibold flex-shrink-0">
-                                                                                            +{stop.estimated_time}h
-                                                                                        </span>
+                                                                                        <span className="text-[10px] text-orange-400 font-semibold flex-shrink-0">+{stop.estimated_time}h</span>
                                                                                     )}
                                                                                 </div>
                                                                             ))}
@@ -853,9 +850,9 @@ const StaffBookingAll: React.FC = () => {
                                                     <select value={selectedPickupId}
                                                         onChange={e => {
                                                             const v = e.target.value;
-                                                            setSelectedPickupId(v); // RouteStop._id → dùng cho booked-seats
+                                                            setSelectedPickupId(v);
                                                             const found = pickupPoints.find(p => p._id === v);
-                                                            setSelectedPickupStopId(found?.stop_id._id ?? ""); // Stop._id → end-point, location-point, getPrice
+                                                            setSelectedPickupStopId(found?.stop_id._id ?? "");
                                                         }}
                                                         disabled={pickupPoints.length === 0}
                                                         className="w-full appearance-none pl-9 pr-9 py-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-semibold text-slate-700 cursor-pointer transition-all focus:outline-none focus:border-green-400 focus:ring-4 focus:ring-green-100 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -914,9 +911,9 @@ const StaffBookingAll: React.FC = () => {
                                                     <select value={selectedDropoffId}
                                                         onChange={e => {
                                                             const v = e.target.value;
-                                                            setSelectedDropoffId(v); // RouteStop._id → dùng cho booked-seats
+                                                            setSelectedDropoffId(v);
                                                             const found = dropoffPoints.find(p => p._id === v);
-                                                            setSelectedDropoffStopId(found?.stop_id._id ?? ""); // Stop._id → location-point, getPrice
+                                                            setSelectedDropoffStopId(found?.stop_id._id ?? "");
                                                         }}
                                                         disabled={!selectedPickupId || dropoffPoints.length === 0}
                                                         className="w-full appearance-none pl-9 pr-9 py-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-semibold text-slate-700 cursor-pointer transition-all focus:outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100 disabled:opacity-50 disabled:cursor-not-allowed">

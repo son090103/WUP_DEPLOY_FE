@@ -10,9 +10,8 @@ const TripListPageLeTan: React.FC = () => {
     const menuItems = [
         { label: "Danh sách chuyến đi", icon: Bus, path: "/letan/chuyendi" },
         { label: "Đặt vé cho khách hàng", icon: Ticket, path: "/letan/ticketBooking" },
-        { label: "Gửi hàng cho khách", icon: Package, path: "/letan/cargoBooking" },
-        { label: "Danh Sách Duyệt Đơn", icon: Package, path: "/letan/CargoOrderList" },
-        { label: "Doanh thu", icon: BarChart3, path: "/letan/revenue" },
+        { label: "Hoàn Tiền cho khách", icon: Package, path: "/letan/hoan-tien" },
+
     ];
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-28 px-6">
