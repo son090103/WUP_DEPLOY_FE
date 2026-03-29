@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 const API_BASE = import.meta.env.VITE_API_URL;
 type LivenessStep = "TURN_LEFT" | "TURN_RIGHT" | "BLINK" | "DONE";
 export default function FaceVerificationPhuXe() {
@@ -428,6 +428,15 @@ export default function FaceVerificationPhuXe() {
                                 ✓ Đã xác thực
                             </button>
                         )}
+                    </div>
+                    <div className="mt-8">
+                        <Link to={"/registerCamera"}>
+                            <button
+                            >
+                                Đăng ký quét khuôn mắt
+                            </button>
+
+                        </Link>
                     </div>
                 </div>
 
