@@ -273,7 +273,7 @@ export default function FaceVerificationPhuXe() {
             const ctx = tempCanvas.getContext("2d")!;
 
             tempCanvas.width = 640;
-            tempCanvas.height = 640;
+            tempCanvas.height = 480;
 
             // 🔥 padding để không crop quá sát
             const padding = 60;
@@ -294,7 +294,7 @@ export default function FaceVerificationPhuXe() {
             );
 
             // 🔥 tăng chất lượng ảnh
-            const image = tempCanvas.toDataURL("image/jpeg", 0.95).split(",")[1];
+            const image = tempCanvas.toDataURL("image/jpeg", 0.8).split(",")[1];
 
             // 🔥 gọi API
             const res = await fetch(`${API_BASE}/api/common/check/face-login`, {
@@ -432,6 +432,7 @@ export default function FaceVerificationPhuXe() {
                     <div className="mt-8">
                         <Link to={"/registerCamera"}>
                             <button
+                                style={{ ...baseBtnStyle, ...styles.btnVerify }}
                             >
                                 Đăng ký quét khuôn mắt
                             </button>
