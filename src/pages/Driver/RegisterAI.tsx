@@ -271,7 +271,7 @@ export default function FaceRegister() {
                 return;
             }
 
-            await fetch(`${API_BASE}/api/driver/check/face-register`, {
+            await fetch(`${API_BASE}/api/common/check/face-register`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
