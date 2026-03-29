@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 type LivenessStep = "TURN_LEFT" | "TURN_RIGHT" | "BLINK" | "DONE";
 const API_BASE = import.meta.env.VITE_API_URL;
@@ -68,8 +68,7 @@ export default function FaceVerification() {
             setCameraOn(true);
             updateStep("TURN_LEFT", "👈 Quay mặt sang trái");
             startDetectLoop();
-        } catch (error : any){
-            console.log("lỗi cam : ",error.message)
+        } catch {
             setStatus("❌ Không thể mở camera");
         }
     };
@@ -376,13 +375,6 @@ export default function FaceVerification() {
                                 ✓ Đã xác thực
                             </button>
                         )}
-                    </div>
-                    <div className="mt-8">
-                        <Link to="/registerCamera"
-                            style={{ ...baseBtnStyle, ...styles.btnVerify }}
-                        >
-                            Đăng Ký khuôn mặt
-                        </Link>
                     </div>
                 </div>
 
