@@ -166,7 +166,7 @@ const BustripRegister = () => {
       console.log("📦 Sending register payload:", payload);
 
       const res = await fetch(
-        `${url} / api / customer / notcheck / register`,
+        `${url}/api/customer/notcheck/register`,
         {
           method: "POST",
           headers: {
